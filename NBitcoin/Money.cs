@@ -670,7 +670,7 @@ namespace NBitcoin
 		/// <returns></returns>
 		public string ToString(bool fplus, bool trimExcessZero = true)
 		{
-			var fmt = string.Format("{{0:{0}{1}B}}",
+			var fmt = string.Format(CultureInfo.InvariantCulture, "{{0:{0}{1}B}}",
 									(fplus ? "+" : null),
 									(trimExcessZero ? "2" : "8"));
 			return string.Format(BitcoinFormatter.Formatter, fmt, _Satoshis);
@@ -865,7 +865,7 @@ namespace NBitcoin
 					unitToUseInCalc = MoneyUnit.BTC;
 					break;
 			}
-			var val = Convert.ToDecimal(arg) / (int)unitToUseInCalc;
+			var val = Convert.ToDecimal(arg, CultureInfo.InvariantCulture) / (int)unitToUseInCalc;
 			var zeros = new string('0', decPos);
 			var rest = new string('#', 10 - decPos);
 			var fmt = plus && val > 0 ? "+" : string.Empty;

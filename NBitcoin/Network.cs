@@ -1,15 +1,12 @@
-﻿using NBitcoin.DataEncoders;
-using NBitcoin.Protocol;
-using NBitcoin.Stealth;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Reflection;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
+using NBitcoin.DataEncoders;
+using NBitcoin.Protocol;
+using NBitcoin.Stealth;
 
 namespace NBitcoin
 {
@@ -736,7 +733,7 @@ namespace NBitcoin
 
 			consensus.BIP9Deployments[BIP9Deployments.TestDummy] = new BIP9DeploymentsParameters(28, 1199145601, 1230767999);
 			consensus.BIP9Deployments[BIP9Deployments.CSV] = new BIP9DeploymentsParameters(0, 1462060800, 1493596800);
-			consensus.BIP9Deployments[BIP9Deployments.Segwit] = new BIP9DeploymentsParameters(1, 0, 0);
+			consensus.BIP9Deployments[BIP9Deployments.Segwit] = new BIP9DeploymentsParameters(1, 1479168000, 1510704000);
 
 			consensus.CoinType = 0;
 
@@ -880,12 +877,12 @@ namespace NBitcoin
 
 			consensus.BIP9Deployments[BIP9Deployments.TestDummy] = new BIP9DeploymentsParameters(28, 0, 999999999);
 			consensus.BIP9Deployments[BIP9Deployments.CSV] = new BIP9DeploymentsParameters(0, 0, 999999999);
-			consensus.BIP9Deployments[BIP9Deployments.Segwit] = new BIP9DeploymentsParameters(1, 0, 999999999);
+			consensus.BIP9Deployments[BIP9Deployments.Segwit] = new BIP9DeploymentsParameters(1, BIP9DeploymentsParameters.AlwaysActive, 999999999);
 
 			genesis = CreateGenesisBlock(1296688602, 2, 0x207fffff, 1, Money.Coins(50m));
 			consensus.HashGenesisBlock = genesis.GetHash();
 			nDefaultPort = 18444;
-			nRPCPort = 18332;
+			nRPCPort = 18443;
 			//strDataDir = "regtest";
 			assert(consensus.HashGenesisBlock == uint256.Parse("0x0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
 
@@ -900,8 +897,7 @@ namespace NBitcoin
 			base58Prefixes[(int)Base58Type.EXT_SECRET_KEY] = new byte[] { (0x04), (0x35), (0x83), (0x94) };
 			base58Prefixes[(int)Base58Type.COLORED_ADDRESS] = new byte[] { 0x13 };
 
-			var encoder = new Bech32Encoder("tb");
-			;
+			var encoder = new Bech32Encoder("bcrt");
 			bech32Encoders[(int)Bech32Type.WITNESS_PUBKEY_ADDRESS] = encoder;
 			bech32Encoders[(int)Bech32Type.WITNESS_SCRIPT_ADDRESS] = encoder;
 		}

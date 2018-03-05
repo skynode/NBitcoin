@@ -490,7 +490,7 @@ namespace NBitcoin
 			return new BigInteger(1, data);
 		}
 
-		static readonly TraceSource _TraceSource = new TraceSource("NBitcoin");
+		static readonly TraceSource _TraceSource = TraceSourceFactory.CreateTraceSource("NBitcoin");
 
 		internal static bool error(string msg)
 		{
@@ -710,7 +710,7 @@ namespace NBitcoin
 		{
 			return ToUInt32(value, 0, littleEndian);
 		}
-		internal static ulong ToUInt64(byte[] value, bool littleEndian)
+		public static ulong ToUInt64(byte[] value, bool littleEndian)
 		{
 			if(littleEndian)
 			{
