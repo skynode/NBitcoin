@@ -46,7 +46,6 @@ namespace NBitcoin.Protocol
 			Advertize = other.Advertize;
 			ReuseBuffer = other.ReuseBuffer;
 			PreferredTransactionOptions = other.PreferredTransactionOptions;
-
 			foreach(var behavior in other.TemplateBehaviors)
 			{
 				TemplateBehaviors.Add(behavior.Clone());
@@ -61,6 +60,7 @@ namespace NBitcoin.Protocol
 			get;
 			set;
 		}
+
 		public ProtocolVersion Version
 		{
 			get;

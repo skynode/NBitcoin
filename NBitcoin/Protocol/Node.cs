@@ -81,6 +81,30 @@ namespace NBitcoin.Protocol
 		}
 	}
 
+	public class SynchronizeChainOptions
+	{
+		/// <summary>
+		/// Location until which synchronization should be stopped (default: null)
+		/// </summary>
+		public uint256 HashStop
+		{
+			get; set;
+		}
+		/// <summary>
+		/// Skip PoW check
+		/// </summary>
+		public bool SkipPoWCheck
+		{
+			get; set;
+		}
+		/// <summary>
+		/// Strip headers from the retrieved chain
+		/// </summary>
+		public bool StripHeaders
+		{
+			get; set;
+		}
+	}
 
 	public delegate void NodeEventHandler(Node node);
 	public delegate void NodeEventMessageIncoming(Node node, IncomingMessage message);
@@ -781,7 +805,6 @@ namespace NBitcoin.Protocol
 			Advertize = parameters.Advertize;
 			PreferredTransactionOptions = parameters.PreferredTransactionOptions;
 			_ReuseBuffer = parameters.ReuseBuffer;
-
 			_Behaviors.DelayAttach = true;
 			foreach(var behavior in parameters.TemplateBehaviors)
 			{
@@ -1155,6 +1178,20 @@ namespace NBitcoin.Protocol
 
 		internal TimeSpan PollHeaderDelay = TimeSpan.FromMinutes(1.0);
 
+
+		/// <summary>
+		/// Get the chain of headers from the peer (thread safe)
+		/// </summary>
+		/// <param name="options">The synchronization chain options</param>
+		/// <param name="cancellationToken"></param>
+		/// <returns>The chain of headers</returns>
+		public ConcurrentChain GetChain(SynchronizeChainOptions options, CancellationToken cancellationToken = default(CancellationToken))
+		{
+			ConcurrentChain chain = new ConcurrentChain(Network);
+			SynchronizeChain(chain, options, cancellationToken);
+			return chain;
+		}
+
 		/// <summary>
 		/// Get the chain of headers from the peer (thread safe)
 		/// </summary>
@@ -1163,15 +1200,15 @@ namespace NBitcoin.Protocol
 		/// <returns>The chain of headers</returns>
 		public ConcurrentChain GetChain(uint256 hashStop = null, CancellationToken cancellationToken = default(CancellationToken))
 		{
-			ConcurrentChain chain = new ConcurrentChain(Network);
-			SynchronizeChain(chain, hashStop, cancellationToken);
-			return chain;
+			return GetChain(new SynchronizeChainOptions() { HashStop = hashStop }, cancellationToken);
 		}
+
 		public IEnumerable<ChainedBlock> GetHeadersFromFork(ChainedBlock currentTip,
-														uint256 hashStop = null,
+														SynchronizeChainOptions options,
 														CancellationToken cancellationToken = default(CancellationToken))
 		{
 			AssertState(NodeState.HandShaked, cancellationToken);
+			options = options ?? new SynchronizeChainOptions();
 
 			NodeServerTrace.Information("Building chain");
 			using(var listener = this.CreateListener().OfType<HeadersPayload>())
@@ -1184,7 +1221,7 @@ namespace NBitcoin.Protocol
 					SendMessageAsync(new GetHeadersPayload()
 					{
 						BlockLocators = awaited,
-						HashStop = hashStop
+						HashStop = options.HashStop
 					});
 
 					while(true)
@@ -1235,8 +1272,15 @@ namespace NBitcoin.Protocol
 							{
 								isOurs = true;
 								currentTip = new ChainedBlock(header, h, currentTip);
+								if(options.StripHeaders)
+									currentTip.StripHeader();
+								if(!options.SkipPoWCheck)
+								{
+									if(!currentTip.Validate(Network))
+										throw new ProtocolException("An header which does not pass proof of work verification has been received");
+								}
 								yield return currentTip;
-								if(currentTip.HashBlock == hashStop)
+								if(currentTip.HashBlock == options.HashStop)
 									yield break;
 							}
 							else
@@ -1249,6 +1293,33 @@ namespace NBitcoin.Protocol
 			}
 		}
 
+		public IEnumerable<ChainedBlock> GetHeadersFromFork(ChainedBlock currentTip,
+														uint256 hashStop = null,
+														CancellationToken cancellationToken = default(CancellationToken))
+		{
+			return GetHeadersFromFork(currentTip, new SynchronizeChainOptions() { HashStop = hashStop }, cancellationToken);
+		}
+
+		/// <summary>
+		/// Synchronize a given Chain to the tip of this node if its height is higher. (Thread safe)
+		/// </summary>
+		/// <param name="chain">The chain to synchronize</param>
+		/// <param name="options">The synchronisation options</param>
+		/// <param name="cancellationToken"></param>
+		/// <returns>The chain of block retrieved</returns>
+		public IEnumerable<ChainedBlock> SynchronizeChain(ChainBase chain, SynchronizeChainOptions options, CancellationToken cancellationToken = default(CancellationToken))
+		{
+			options = options ?? new SynchronizeChainOptions();
+			var oldTip = chain.Tip;
+			var headers = GetHeadersFromFork(oldTip, options, cancellationToken).ToList();
+			if(headers.Count == 0)
+				return new ChainedBlock[0];
+			var newTip = headers[headers.Count - 1];
+			if(newTip.Height <= oldTip.Height)
+				throw new ProtocolException("No tip should have been recieved older than the local one");
+			chain.SetTip(newTip);
+			return headers;
+		}
 
 		/// <summary>
 		/// Synchronize a given Chain to the tip of this node if its height is higher. (Thread safe)
@@ -1256,25 +1327,10 @@ namespace NBitcoin.Protocol
 		/// <param name="chain">The chain to synchronize</param>
 		/// <param name="hashStop">The location until which it synchronize</param>
 		/// <param name="cancellationToken"></param>
-		/// <returns></returns>
+		/// <returns>The chain of block retrieved</returns>
 		public IEnumerable<ChainedBlock> SynchronizeChain(ChainBase chain, uint256 hashStop = null, CancellationToken cancellationToken = default(CancellationToken))
 		{
-			var oldTip = chain.Tip;
-			var headers = GetHeadersFromFork(oldTip, hashStop, cancellationToken).ToList();
-			if(headers.Count == 0)
-				return new ChainedBlock[0];
-			var newTip = headers[headers.Count - 1];
-
-			if(newTip.Height <= oldTip.Height)
-				throw new ProtocolException("No tip should have been recieved older than the local one");
-			foreach(var header in headers)
-			{
-				if(!header.Validate(Network))
-					throw new ProtocolException("An header which does not pass proof of work verification has been received");
-			}
-
-			chain.SetTip(newTip);
-			return headers;
+			return SynchronizeChain(chain, new SynchronizeChainOptions() { HashStop = hashStop }, cancellationToken);
 		}
 
 		public IEnumerable<Block> GetBlocks(uint256 hashStop = null, CancellationToken cancellationToken = default(CancellationToken))

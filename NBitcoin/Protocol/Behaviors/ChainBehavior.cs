@@ -26,6 +26,22 @@ namespace NBitcoin.Protocol.Behaviors
 			CanRespondToGetHeaders = true;
 		}
 
+		/// <summary>
+		/// If true, the Chain maintained by the behavior with have its ChainedBlock with no Header (default: false)
+		/// </summary>
+		public bool StripHeader
+		{
+			get; set;
+		}
+
+		/// <summary>
+		/// If true, skip PoW checks (default: false)
+		/// </summary>
+		public bool SkipPoWCheck
+		{
+			get; set;
+		}
+
 		public State SharedState
 		{
 			get
@@ -108,7 +124,7 @@ namespace NBitcoin.Protocol.Behaviors
 			}
 
 			var getheaders = message.Message.Payload as GetHeadersPayload;
-			if(getheaders != null && CanRespondToGetHeaders)
+			if(getheaders != null && CanRespondToGetHeaders && !StripHeader)
 			{
 				HeadersPayload headers = new HeadersPayload();
 				var highestPow = SharedState.HighestValidatedPoW;
@@ -146,7 +162,7 @@ namespace NBitcoin.Protocol.Behaviors
 					if(prev == null)
 						break;
 					tip = new ChainedBlock(header, header.GetHash(), prev);
-					var validated = Chain.GetBlock(tip.HashBlock) != null || tip.Validate(AttachedNode.Network);
+					var validated = Chain.GetBlock(tip.HashBlock) != null || (SkipPoWCheck || tip.Validate(AttachedNode.Network));
 					validated &= !SharedState.IsMarkedInvalid(tip.HashBlock);
 					if(!validated)
 					{
@@ -155,9 +171,18 @@ namespace NBitcoin.Protocol.Behaviors
 					}
 					_PendingTip = tip;
 				}
-				if(_PendingTip.ChainWork > Chain.Tip.ChainWork)
+
+				bool isHigherBlock = false;
+				if(SkipPoWCheck)
+					isHigherBlock = _PendingTip.Height > Chain.Tip.Height;
+				else
+					isHigherBlock = _PendingTip.GetChainWork(true) > Chain.Tip.GetChainWork(true);
+
+				if(isHigherBlock)
 				{
 					Chain.SetTip(_PendingTip);
+					if(StripHeader)
+						_PendingTip.StripHeader();
 				}
 
 				var chainedPendingTip = Chain.GetBlock(_PendingTip.HashBlock);
@@ -320,6 +345,8 @@ namespace NBitcoin.Protocol.Behaviors
 				CanSync = CanSync,
 				CanRespondToGetHeaders = CanRespondToGetHeaders,
 				AutoSync = AutoSync,
+				SkipPoWCheck = SkipPoWCheck,
+				StripHeader = StripHeader,
 				_State = _State
 			};
 			return clone;

@@ -1,6 +1,7 @@
 ﻿using NBitcoin.BouncyCastle.Math;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -19,10 +20,34 @@ namespace NBitcoin
 		{
 			get
 			{
-				return phashBlock;
+				var h = phashBlock;
+				if(h == null)
+				{
+					AssertHasHeader();
+					h = Header.GetHash();
+					phashBlock = h;
+				}
+				return h;
 			}
 		}
 
+
+		/// <summary>
+		/// Free up some memory (cached HashBlock and ChainWork) at the price of efficiency
+		/// </summary>
+		public void StripCachedData()
+		{
+			phashBlock = null;
+			_ChainWork = null;
+		}
+
+		/// <summary>
+		/// Strip the Header to free up memory
+		/// </summary>
+		public void StripHeader()
+		{
+			header = null;
+		}
 
 		// pointer to the index of the predecessor of this block
 		ChainedBlock pprev;
@@ -49,27 +74,107 @@ namespace NBitcoin
 
 		BlockHeader header;
 
+		/// <summary>
+		/// Returns true if this ChainedBlock has the underlying header
+		/// </summary>
+		public bool HasHeader
+		{
+			get
+			{
+				return header != null;
+			}
+		}
+
+		/// <summary>
+		/// Get the BlockHeader
+		/// </summary>
+		/// <param name="header">The block header</param>
+		/// <returns>True if this ChainedBlock has block header</returns>
+		public bool TryGetHeader(out BlockHeader header)
+		{
+			header = this.header;
+			return header != null;
+		}
+
+		/// <summary>
+		/// Get the underlying block header, throws if the Header is not present.
+		/// </summary>
 		public BlockHeader Header
 		{
 			get
 			{
+				AssertHasHeader();
 				return header;
 			}
 		}
 
 		BigInteger _ChainWork;
+
+		// Might be computationally intense
+		[DebuggerBrowsable(DebuggerBrowsableState.Never)]
+		[Obsolete("Use GetChainWork() instead")]
 		public uint256 ChainWork
 		{
 			get
 			{
-				return Target.ToUInt256(_ChainWork);
+				return GetChainWork(true);
 			}
+		}
+
+
+		/// <summary>
+		/// Get the value of the chain work
+		/// </summary>
+		/// <param name="cacheResult">If true, called GetChainWork on this block and future block will be faster, but this trade for space</param>
+		/// <returns>The chain work value</returns>
+		public uint256 GetChainWork(bool cacheResult)
+		{
+			return Target.ToUInt256(GetChainWorkValue(cacheResult));
+		}
+
+
+		private BigInteger GetChainWorkValue(bool cacheResult)
+		{
+			var chainWork = _ChainWork;
+			if(chainWork == null)
+			{
+				chainWork = CalculateChainWork();
+				if(cacheResult)
+					_ChainWork = chainWork;
+			}
+			return chainWork;
+		}
+
+		private BigInteger CalculateChainWork()
+		{
+			BigInteger aggregate = BigInteger.Zero;
+			Stack<ChainedBlock> previous = new Stack<ChainedBlock>();
+			foreach(var header in this.EnumerateToGenesis().Skip(1))
+			{
+				var value = header._ChainWork;
+				if(value == null)
+				{
+					previous.Push(header);
+				}
+				else
+				{
+					aggregate = value;
+					break;
+				}
+			}
+			while(previous.Count != 0)
+			{
+				aggregate = aggregate.Add(previous.Pop().GetBlockProof());
+			}
+			return aggregate.Add(GetBlockProof());
 		}
 
 		public ChainedBlock(BlockHeader header, uint256 headerHash, ChainedBlock previous)
 		{
-			if(header == null)
-				throw new ArgumentNullException("header");
+			if(header == null && headerHash == null)
+			{
+				throw new ArgumentException(message: "At least, either header or headerHash should be different from null");
+			}
 			if(previous != null)
 			{
 				nHeight = previous.Height + 1;
@@ -79,27 +184,25 @@ namespace NBitcoin
 			this.header = header;
 			this.phashBlock = headerHash ?? header.GetHash();
 
-			if(previous == null)
+			if(header != null)
 			{
-				if(header.HashPrevBlock != uint256.Zero)
-					throw new ArgumentException("Only the genesis block can have no previous block");
+				if(previous == null)
+				{
+					if(header.HashPrevBlock != uint256.Zero)
+						throw new ArgumentException("Only the genesis block can have no previous block");
+				}
+				else
+				{
+					if(previous.HashBlock != header.HashPrevBlock)
+						throw new ArgumentException("The previous block has not the expected hash");
+				}
 			}
-			else
-			{
-				if(previous.HashBlock != header.HashPrevBlock)
-					throw new ArgumentException("The previous block has not the expected hash");
-			}
-			CalculateChainWork();
-		}
-
-		private void CalculateChainWork()
-		{
-			_ChainWork = (Previous == null ? BigInteger.Zero : Previous._ChainWork).Add(GetBlockProof());
 		}
 
 		static BigInteger Pow256 = BigInteger.ValueOf(2).Pow(256);
 		private BigInteger GetBlockProof()
 		{
+			AssertHasHeader();
 			var bnTarget = Header.Bits.ToBigInteger();
 			if(bnTarget.CompareTo(BigInteger.Zero) <= 0 || bnTarget.CompareTo(Pow256) >= 0)
 				return BigInteger.Zero;
@@ -118,7 +221,6 @@ namespace NBitcoin
 			//this.nDataPos = pos;
 			this.header = header;
 			this.phashBlock = header.GetHash();
-			CalculateChainWork();
 		}
 
 		public BlockLocator GetLocator()
@@ -151,7 +253,7 @@ namespace NBitcoin
 			ChainedBlock item = obj as ChainedBlock;
 			if(item == null)
 				return false;
-			return phashBlock.Equals(item.phashBlock);
+			return HashBlock.Equals(item.HashBlock);
 		}
 		public static bool operator ==(ChainedBlock a, ChainedBlock b)
 		{
@@ -159,7 +261,7 @@ namespace NBitcoin
 				return true;
 			if(((object)a == null) || ((object)b == null))
 				return false;
-			return a.phashBlock == b.phashBlock;
+			return a.HashBlock == b.HashBlock;
 		}
 
 		public static bool operator !=(ChainedBlock a, ChainedBlock b)
@@ -169,7 +271,7 @@ namespace NBitcoin
 
 		public override int GetHashCode()
 		{
-			return phashBlock.GetHashCode();
+			return HashBlock.GetHashCode();
 		}
 
 
@@ -239,8 +341,14 @@ namespace NBitcoin
 			return new ChainedBlock(block, block.GetHash(), this).GetWorkRequired(consensus);
 		}
 
+		private void AssertHasHeader()
+		{
+			if(header == null)
+				throw new InvalidOperationException("ChainedBlock.Header must be available");
+		}
 		public Target GetWorkRequired(Consensus consensus)
 		{
+			AssertHasHeader();
 			// Genesis block
 			if(Height == 0)
 				return consensus.PowLimit;
@@ -289,7 +397,7 @@ namespace NBitcoin
 			ChainedBlock pindexFirst = this.EnumerateToGenesis().FirstOrDefault(o => o.Height == pastHeight);
 			assert(pindexFirst);
 			if(consensus.PowNoRetargeting)
-				return pindexLast.header.Bits;
+				return pindexLast.Header.Bits;
 
 			// Limit adjustment step
 			var nActualTimespan = pindexLast.Header.BlockTime - pindexFirst.Header.BlockTime;
@@ -313,6 +421,7 @@ namespace NBitcoin
 		const int nMedianTimeSpan = 11;
 		public DateTimeOffset GetMedianTimePast()
 		{
+			AssertHasHeader();
 			DateTimeOffset[] pmedian = new DateTimeOffset[nMedianTimeSpan];
 			int pbegin = nMedianTimeSpan;
 			int pend = nMedianTimeSpan;
@@ -351,6 +460,7 @@ namespace NBitcoin
 		/// <returns>True if PoW is correct</returns>
 		public bool Validate(Consensus consensus)
 		{
+			AssertHasHeader();
 			if(consensus == null)
 				throw new ArgumentNullException("consensus");
 			if(Height != 0 && Previous == null)
@@ -369,6 +479,7 @@ namespace NBitcoin
 
 		public bool CheckProofOfWorkAndTarget(Consensus consensus)
 		{
+			AssertHasHeader();
 			return Height == 0 || (Header.CheckProofOfWork(consensus) && Header.Bits == GetWorkRequired(consensus));
 		}
 
