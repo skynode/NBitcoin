@@ -28,6 +28,19 @@ namespace NBitcoin.RPC
 	public class RestClient : IBlockRepository
 	{
 		private readonly Uri _address;
+		private readonly Network _network;
+
+
+		/// <summary>
+		/// Gets the <see cref="Network"/> instance for the client.
+		/// </summary>
+		public Network Network
+		{
+			get
+			{
+				return _network;
+			}
+		}
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="RestClient"/> class.
@@ -36,12 +49,26 @@ namespace NBitcoin.RPC
 		/// <exception cref="System.ArgumentNullException">Null rest API endpoint</exception>
 		/// <exception cref="System.ArgumentException">Invalid value for RestResponseFormat</exception>
 		public RestClient(Uri address)
+			:this(address, Network.Main)
 		{
-			if(address == null)
-				throw new ArgumentNullException("address");
-			_address = address;
 		}
 
+		/// <summary>
+		/// Initializes a new instance of the <see cref="RestClient"/> class.
+		/// </summary>
+		/// <param name="address">The rest API endpoint</param>
+		/// <param name="network">The network to operate with</param>
+		/// <exception cref="System.ArgumentNullException">Null rest API endpoint</exception>
+		/// <exception cref="System.ArgumentException">Invalid value for RestResponseFormat</exception>
+		public RestClient(Uri address, Network network)
+		{
+			if(address == null)
+				throw new ArgumentNullException(nameof(address));
+			if(network == null)
+				throw new ArgumentNullException(nameof(network));
+			_address = address;
+			_network = network;
+		}
 
 		/// <summary>
 		/// Gets the block.
@@ -52,10 +79,10 @@ namespace NBitcoin.RPC
 		public async Task<Block> GetBlockAsync(uint256 blockId)
 		{
 			if(blockId == null)
-				throw new ArgumentNullException("blockId");
+				throw new ArgumentNullException(nameof(blockId));
 
 			var result = await SendRequestAsync("block", RestResponseFormat.Bin, blockId.ToString()).ConfigureAwait(false);
-			return new Block(result);
+			return Block.Load(result, Network);
 		}
 		/// <summary>
 		/// Gets the block.
@@ -77,7 +104,7 @@ namespace NBitcoin.RPC
 		public async Task<Transaction> GetTransactionAsync(uint256 txId)
 		{
 			if(txId == null)
-				throw new ArgumentNullException("txId");
+				throw new ArgumentNullException(nameof(txId));
 
 			var result = await SendRequestAsync("tx", RestResponseFormat.Bin, txId.ToString()).ConfigureAwait(false);
 			return new Transaction(result);
@@ -104,7 +131,7 @@ namespace NBitcoin.RPC
 		public async Task<IEnumerable<BlockHeader>> GetBlockHeadersAsync(uint256 blockId, int count)
 		{
 			if(blockId == null)
-				throw new ArgumentNullException("blockId");
+				throw new ArgumentNullException(nameof(blockId));
 			if(count < 1)
 				throw new ArgumentOutOfRangeException("count", "count must be greater or equal to one.");
 
@@ -112,7 +139,7 @@ namespace NBitcoin.RPC
 			const int hexSize = (BlockHeader.Size);
 			return Enumerable
 				.Range(0, result.Length / hexSize)
-				.Select(i => new BlockHeader(result.SafeSubarray(i * hexSize, hexSize)));
+				.Select(i => new BlockHeader(result.SafeSubarray(i * hexSize, hexSize), Network));
 		}
 
 		/// <summary>
@@ -159,7 +186,7 @@ namespace NBitcoin.RPC
 		public async Task<UTxOutputs> GetUnspentOutputsAsync(IEnumerable<OutPoint> outPoints, bool checkMempool)
 		{
 			if(outPoints == null)
-				throw new ArgumentNullException("outPoints");
+				throw new ArgumentNullException(nameof(outPoints));
 			var ids = from op in outPoints
 					  select op.ToString();
 			var result = await SendRequestAsync("getutxos" + (checkMempool ? "/checkmempool" : ""), RestResponseFormat.Bin, ids.ToArray()).ConfigureAwait(false);

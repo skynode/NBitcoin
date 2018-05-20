@@ -12,8 +12,8 @@ namespace NBitcoin.OpenAsset
 	public class BitcoinAssetId : Base58Data
 	{
 		public BitcoinAssetId(string base58, Network expectedNetwork = null)
-			: base(base58, expectedNetwork)
 		{
+			Init<BitcoinAssetId>(base58, expectedNetwork);
 		}
 		public BitcoinAssetId(byte[] raw, Network network)
 			: base(raw, network)
@@ -24,9 +24,9 @@ namespace NBitcoin.OpenAsset
 			: this(assetId._Bytes, network)
 		{
 			if(assetId == null)
-				throw new ArgumentNullException("assetId");
+				throw new ArgumentNullException(nameof(assetId));
 			if(network == null)
-				throw new ArgumentNullException("network");
+				throw new ArgumentNullException(nameof(network));
 		}
 
 		AssetId _AssetId;

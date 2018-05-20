@@ -12,12 +12,14 @@ using System.Threading.Tasks;
 
 namespace NBitcoin.SPV
 {
+	[Obsolete]
 	public enum FilterState
 	{
 		Unloaded,
 		Loading,
 		Loaded
 	}
+	[Obsolete]
 	public class TrackerScanPosition
 	{
 		public BlockLocator Locator
@@ -34,6 +36,7 @@ namespace NBitcoin.SPV
 	/// <summary>
 	/// Load a bloom filter on the node, and push transactions in the Tracker
 	/// </summary>
+	[Obsolete]
 	public class TrackerBehavior : NodeBehavior
 	{
 		Tracker _Tracker;
@@ -47,7 +50,7 @@ namespace NBitcoin.SPV
 		public TrackerBehavior(Tracker tracker, ConcurrentChain chain = null)
 		{
 			if(tracker == null)
-				throw new ArgumentNullException("tracker");
+				throw new ArgumentNullException(nameof(tracker));
 			FalsePositiveRate = 0.000005;
 			_Chain = chain;
 			_ExplicitChain = chain;

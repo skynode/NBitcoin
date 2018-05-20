@@ -145,12 +145,12 @@ namespace NBitcoin.Protocol
 		public void UpdateSignature(Key key)
 		{
 			if(key == null)
-				throw new ArgumentNullException("key");
+				throw new ArgumentNullException(nameof(key));
 			UpdatePayload();
 			signature = new VarString(key.Sign(Hashes.Hash256(payload.GetString())).ToDER());
 		}
 
-		public void UpdatePayload(ProtocolVersion protocolVersion = ProtocolVersion.PROTOCOL_VERSION)
+		public void UpdatePayload(uint? protocolVersion = null)
 		{
 			UpdatePayload(new BitcoinStream(new byte[0])
 			{
@@ -161,14 +161,14 @@ namespace NBitcoin.Protocol
 		public bool CheckSignature(Network network)
 		{
 			if(network == null)
-				throw new ArgumentNullException("network");
+				throw new ArgumentNullException(nameof(network));
 			return CheckSignature(network.AlertPubKey);
 		}
 
 		public bool CheckSignature(PubKey key)
 		{
 			if(key == null)
-				throw new ArgumentNullException("key");
+				throw new ArgumentNullException(nameof(key));
 			return key.Verify(Hashes.Hash256(payload.GetString()), signature.GetString());
 		}
 

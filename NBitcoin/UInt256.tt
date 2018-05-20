@@ -87,7 +87,7 @@ namespace NBitcoin
 		public static bool TryParse(string hex, out uint<#= t #> result)
 		{
 			if(hex == null)
-				throw new ArgumentNullException("hex");
+				throw new ArgumentNullException(nameof(hex));
 			if (hex.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
 				hex = hex.Substring(2);
 			result = null;
@@ -269,7 +269,7 @@ str = str.Trim();
 			return new MutableUint<#= t #>(this);
 		}
 		
-		public int GetSerializeSize(int nType=0, ProtocolVersion protocolVersion = ProtocolVersion.PROTOCOL_VERSION)
+		public int GetSerializeSize(int nType=0, uint? protocolVersion = null)
 		{
 			return WIDTH_BYTE;
 		}

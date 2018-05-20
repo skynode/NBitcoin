@@ -216,7 +216,7 @@ namespace NBitcoin
 		public ChainedBlock(BlockHeader header, int height)
 		{
 			if(header == null)
-				throw new ArgumentNullException("header");
+				throw new ArgumentNullException(nameof(header));
 			nHeight = height;
 			//this.nDataPos = pos;
 			this.header = header;
@@ -325,7 +325,7 @@ namespace NBitcoin
 		}
 		public Target GetNextWorkRequired(Consensus consensus)
 		{
-			BlockHeader dummy = new BlockHeader();
+			BlockHeader dummy = consensus.ConsensusFactory.CreateBlockHeader();
 			dummy.HashPrevBlock = this.HashBlock;
 			dummy.BlockTime = DateTimeOffset.UtcNow;
 			return GetNextWorkRequired(dummy, consensus);
@@ -448,7 +448,7 @@ namespace NBitcoin
 		public bool Validate(Network network)
 		{
 			if(network == null)
-				throw new ArgumentNullException("network");
+				throw new ArgumentNullException(nameof(network));
 			var genesisCorrect = Height != 0 || HashBlock == network.GetGenesis().GetHash();
 			return genesisCorrect && Validate(network.Consensus);
 		}
@@ -462,7 +462,7 @@ namespace NBitcoin
 		{
 			AssertHasHeader();
 			if(consensus == null)
-				throw new ArgumentNullException("consensus");
+				throw new ArgumentNullException(nameof(consensus));
 			if(Height != 0 && Previous == null)
 				return false;
 			var heightCorrect = Height == 0 || Height == Previous.Height + 1;
@@ -480,7 +480,7 @@ namespace NBitcoin
 		public bool CheckProofOfWorkAndTarget(Consensus consensus)
 		{
 			AssertHasHeader();
-			return Height == 0 || (Header.CheckProofOfWork(consensus) && Header.Bits == GetWorkRequired(consensus));
+			return Height == 0 || (Header.CheckProofOfWork() && Header.Bits == GetWorkRequired(consensus));
 		}
 
 
@@ -492,7 +492,7 @@ namespace NBitcoin
 		public ChainedBlock FindFork(ChainedBlock block)
 		{
 			if(block == null)
-				throw new ArgumentNullException("block");
+				throw new ArgumentNullException(nameof(block));
 
 			var highChain = this.Height > block.Height ? this : block;
 			var lowChain = highChain == this ? block : this;
