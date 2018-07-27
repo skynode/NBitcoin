@@ -51,8 +51,9 @@ namespace NBitcoin
 				{
 
 					byte[] version = network.GetVersionBytes(b58.Type, true);
-					var inner = Encoders.Base58Check.DecodeData(b58.ToString()).Skip(version.Length).ToArray();
-					var newBase58 = Encoders.Base58Check.EncodeData(version.Concat(inner).ToArray());
+					var enc = network.NetworkStringParser.GetBase58CheckEncoder();
+					var inner = enc.DecodeData(b58.ToString()).Skip(version.Length).ToArray();
+					var newBase58 = enc.EncodeData(version.Concat(inner).ToArray());
 					return Network.Parse<T>(newBase58, network);
 				}
 				else
@@ -212,15 +213,17 @@ namespace NBitcoin
 			if(offset > buffer.Length - count) throw new ArgumentOutOfRangeException("count");
 
 			//IO interruption not supported on these platforms.
-
+			
 			int totalReadCount = 0;
-
+#if !NOSOCKET
+			var interruptable = stream is NetworkStream && cancellation.CanBeCanceled;
+#endif
 			while(totalReadCount < count)
 			{
 				cancellation.ThrowIfCancellationRequested();
 				int currentReadCount = 0;
 #if !NOSOCKET
-				if(stream is NetworkStream && cancellation.CanBeCanceled)
+				if(interruptable)
 				{
 					currentReadCount = stream.ReadAsync(buffer, offset + totalReadCount, count - totalReadCount, cancellation).GetAwaiter().GetResult();
 				}
@@ -231,6 +234,26 @@ namespace NBitcoin
 				}
 				if(currentReadCount == 0)
 					return 0;
+				totalReadCount += currentReadCount;
+			}
+
+			return totalReadCount;
+		}
+#endif
+
+#if HAS_SPAN
+		public static int ReadEx(this Stream stream, Span<byte> buffer, CancellationToken cancellation = default(CancellationToken))
+		{
+			if(stream == null)
+				throw new ArgumentNullException(nameof(stream));
+			int totalReadCount = 0;
+			while(!buffer.IsEmpty)
+			{
+				cancellation.ThrowIfCancellationRequested();
+				int currentReadCount = stream.Read(buffer);
+				if(currentReadCount == 0)
+					return 0;
+				buffer = buffer.Slice(currentReadCount);
 				totalReadCount += currentReadCount;
 			}
 
@@ -444,7 +467,7 @@ namespace NBitcoin
 			ms.Write(bytes, 0, bytes.Length);
 		}
 
-		internal static Array BigIntegerToBytes(NBitcoin.BouncyCastle.Math.BigInteger b, int numBytes)
+		internal static byte[] BigIntegerToBytes(BigInteger b, int numBytes)
 		{
 			if(b == null)
 			{
@@ -456,7 +479,6 @@ namespace NBitcoin
 			int length = Math.Min(biBytes.Length, numBytes);
 			Array.Copy(biBytes, start, bytes, numBytes - length, length);
 			return bytes;
-
 		}
 
 		public static byte[] BigIntegerToBytes(BigInteger num)
@@ -655,6 +677,27 @@ namespace NBitcoin
 				};
 			}
 		}
+
+#if HAS_SPAN
+		public static void ToBytes(uint value, bool littleEndian, Span<byte> output)
+		{
+			if(littleEndian)
+			{
+				output[0] = (byte)value;
+				output[1] = (byte)(value >> 8);
+				output[2] = (byte)(value >> 16);
+				output[3] = (byte)(value >> 24);
+			}
+			else
+			{
+				output[0] = (byte)(value >> 24);
+				output[1] = (byte)(value >> 16);
+				output[2] = (byte)(value >> 8);
+				output[3] = (byte)value;
+			}
+		}
+#endif
+
 		public static byte[] ToBytes(ulong value, bool littleEndian)
 		{
 			if(littleEndian)
@@ -704,6 +747,25 @@ namespace NBitcoin
 					   + ((uint)value[index + 0] << 24);
 			}
 		}
+#if HAS_SPAN
+		public static uint ToUInt32(Span<byte> value, int index, bool littleEndian)
+		{
+			if(littleEndian)
+			{
+				return value[index]
+					   + ((uint)value[index + 1] << 8)
+					   + ((uint)value[index + 2] << 16)
+					   + ((uint)value[index + 3] << 24);
+			}
+			else
+			{
+				return value[index + 3]
+					   + ((uint)value[index + 2] << 8)
+					   + ((uint)value[index + 1] << 16)
+					   + ((uint)value[index + 0] << 24);
+			}
+		}
+#endif
 
 
 		public static int ToInt32(byte[] value, int index, bool littleEndian)

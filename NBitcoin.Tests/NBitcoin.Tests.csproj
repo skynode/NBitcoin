@@ -6,16 +6,16 @@
 		<Description>The C# Bitcoin Library</Description>
 	</PropertyGroup>
   <PropertyGroup>
-	  <TargetFrameworks>net461;netcoreapp2.0</TargetFrameworks>
-	  <TargetFrameworks Condition="'$(BuildingInsideVisualStudio)' == 'true' And '$(MSBuildRuntimeType)' == 'Full' ">net461</TargetFrameworks>
-	  <TargetFrameworks Condition="'$(BuildingInsideVisualStudio)' == 'true' And '$(MSBuildRuntimeType)' == 'Core' ">netcoreapp2.0</TargetFrameworks>
+	  <TargetFrameworks>net461;netcoreapp2.1</TargetFrameworks>
+	  <TargetFrameworks Condition="'$(BuildingInsideVisualStudio)' == 'true'">netcoreapp2.1</TargetFrameworks>
+	  <!--<TargetFrameworks Condition="'$(BuildingInsideVisualStudio)' == 'true' And '$(MSBuildRuntimeType)' == 'Core' ">netcoreapp2.1</TargetFrameworks>-->
 	  <NoWarn>CS0618</NoWarn>
   </PropertyGroup>
 	<PropertyGroup Condition=" '$(TargetFramework)' == 'net461' ">
 		<DefineConstants>$(DefineConstants);WIN;NOCONSENSUSLIB</DefineConstants>
 	</PropertyGroup>
-	<PropertyGroup Condition=" '$(TargetFramework)' == 'netcoreapp2.0' ">
-		<DefineConstants>$(DefineConstants);NETCORE;NOTRACESOURCE;NOCUSTOMSSLVALIDATION;NOHTTPSERVER;NOCONSENSUSLIB</DefineConstants>
+	<PropertyGroup Condition=" '$(TargetFramework)' == 'netcoreapp2.1' ">
+		<DefineConstants>$(DefineConstants);NETCORE;NOTRACESOURCE;NOCUSTOMSSLVALIDATION;NOHTTPSERVER;NOCONSENSUSLIB;HAS_SPAN</DefineConstants>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -24,15 +24,12 @@
 		<ProjectReference Include="..\NBitcoin.Altcoins\NBitcoin.Altcoins.csproj" />
 		<ProjectReference Include="..\NBitcoin.TestFramework\NBitcoin.TestFramework.csproj" />
 		<PackageReference Include="Microsoft.CSharp" Version="4.3.0" />
-		<PackageReference Include="Newtonsoft.Json" Version="9.0.1" />
-		<PackageReference Include="System.Net.Requests" Version="4.3.0" />
-		<PackageReference Include="System.Net.Http" Version="4.3.3" />
 		<PackageReference Include="xunit" Version="2.2.0" />
 		<PackageReference Include="xunit.runner.visualstudio" Version="2.3.1" />
 		<PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0" />
 		<PackageReference Include="System.Diagnostics.Process" Version="4.3.0" />
+		<PackageReference Include="System.ValueTuple" Version="4.5.0"></PackageReference>
 	</ItemGroup>
-
 	<ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp1.1' ">
 		<PackageReference Include="System.Collections.NonGeneric" Version="4.3.0" />
 		<PackageReference Include="System.Globalization.Extensions" Version="4.3.0" />
@@ -45,9 +42,6 @@
     <None Include="App.config" />
     <None Include="data\.cookie">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="data\alertTests.raw">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="data\base58_keys_invalid.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -161,7 +155,10 @@
     <Content Include="data\block169482.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="data\bip158_vectors.csv">
+    <Content Include="data\block-testnet-828575.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="data\bip158_vectors.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="README.txt" />

@@ -16,36 +16,25 @@ namespace NBitcoin.Tests
 		[Trait("UnitTest", "UnitTest")]
 		public void GenerateTestVectorsTest()
 		{
-			var testLines = File.ReadAllLines("data/bip158_vectors.csv");
-			foreach(var testLine in testLines.Skip(1))
+			var tests = TestCase.read_json("data/bip158_vectors.json");
+
+			foreach(var test in tests.Skip(1))
 			{
 				var i= 0;
-				var test = testLine.Split(',');
-				var testBlockHeight = int.Parse(test[i++]); 
-				var testBlockHash = uint256.Parse(test[i++]);
-				var testBlock = Block.Parse(test[i++]);
-				var testPreviousBasicHeader = uint256.Parse(test[i++]);
-				var testPreviousExtHeader = uint256.Parse(test[i++]);
-				var testBasicFilter = test[i++];
-				var testExtFilter = test[i++] ;
-				var testBasicHeader = test[i++];
-				var testExtHeader = test[i++];
+				var testBlockHeight = test[i++]; 
+				var testBlockHash = uint256.Parse((string)test[i++]);
+				var testBlock = Block.Parse((string)test[i++]);
+				var testPreviousBasicHeader = uint256.Parse((string)test[i++]);
+				var testBasicFilter = (string)test[i++];
+				var testBasicHeader = (string)test[i++];
+				var message = (string)test[i++];
 
 				var basicFilter = GolombRiceFilterBuilder.BuildBasicFilter(testBlock);
 			 	Assert.Equal(testBasicFilter, basicFilter.ToString());
 				Assert.Equal(testBasicHeader, basicFilter.GetHeader(testPreviousBasicHeader).ToString());
 
-				testExtFilter = !string.IsNullOrEmpty(testExtFilter) ? testExtFilter : "00";
-				var extFilter = GolombRiceFilterBuilder.BuildExtendedFilter(testBlock);
-			 	Assert.Equal(testExtFilter, extFilter.ToString());
-				Assert.Equal(testExtHeader, extFilter.GetHeader(testPreviousExtHeader).ToString());
-
 				var deserializedBasicFilter = GolombRiceFilter.Parse(testBasicFilter);
 				Assert.Equal(testBasicFilter, deserializedBasicFilter.ToString());
-
-				var deserializedExtFilter = GolombRiceFilter.Parse(testExtFilter);
-				Assert.Equal(testExtFilter, deserializedExtFilter.ToString());
-
 			}
 		}
 
@@ -138,7 +127,6 @@ namespace NBitcoin.Tests
 
 			// Generation of data to be added into the filter
 			var random = new Random();
-			var sw = new Stopwatch();
 				
 			var blocks = new List<BlockFilter>(blockCount);
 			for (var i = 0; i < blockCount; i++)
@@ -157,14 +145,10 @@ namespace NBitcoin.Tests
 
 				builder.AddEntries(txouts);
 
-				sw.Start();
 				var filter = builder.Build();
-				sw.Stop();
 
 				blocks.Add(new BlockFilter(filter, txouts));
 			}
-			sw.Reset();
-
 
 			var walletAddresses = new List<byte[]>(walletAddressCount);
 			var falsePositiveCount = 0;
@@ -175,7 +159,6 @@ namespace NBitcoin.Tests
 				walletAddresses.Add(walletAddress);
 			}
 
-			sw.Start();
 			// Check that the filter can match every single txout in every block.
 			foreach (var block in blocks)
 			{
@@ -183,11 +166,9 @@ namespace NBitcoin.Tests
 					falsePositiveCount++;
 			}
 
-			sw.Stop();
 			Assert.True(falsePositiveCount < 5);
 
 			// Filter has to mat existing values
-			sw.Start();
 			var falseNegativeCount = 0;
 			// Check that the filter can match every single txout in every block.
 			foreach (var block in blocks)
@@ -196,9 +177,184 @@ namespace NBitcoin.Tests
 					falseNegativeCount++;
 			}
 
-			sw.Stop();
-
 			Assert.Equal(0, falseNegativeCount);
+		}
+
+		[Fact]
+		[Trait("UnitTest", "UnitTest")]
+		public void CanHandleCustomPandMValuesTest()
+		{
+			var byteArray0 = new byte[] { 1, 2, 3, 4 };
+			var byteArray1 = new byte[] { 2, 3, 4 };
+			var byteArray2 = new byte[] { 3, 4 };
+
+			var key = Hashes.Hash256(new byte[]{ 99, 99, 99, 99 });
+			var testKey = key.ToBytes().SafeSubarray(0, 16);
+
+			var filter = new GolombRiceFilterBuilder()
+				.SetKey(key)
+				.SetP(10)
+				.SetM(1U<<10)
+				.AddEntries(new [] { byteArray0, byteArray1, byteArray2 })
+				.AddScriptPubkey( Script.FromBytesUnsafe(byteArray0) )
+				.AddScriptPubkey( Script.FromBytesUnsafe(byteArray1) )
+				.AddScriptPubkey( Script.FromBytesUnsafe(byteArray2) )
+				.Build();
+			var filterSize10_10 = filter.ToBytes().Length;
+
+			Assert.Equal(3, filter.N);
+			Assert.Equal(10, filter.P);
+			Assert.Equal(1U<<10, filter.M);
+			Assert.True(filter.Match(byteArray0, testKey));
+			Assert.True(filter.Match(byteArray1, testKey));
+			Assert.True(filter.Match(byteArray2, testKey));
+			Assert.False(filter.Match(new byte[]{ 6, 7, 8}, testKey));
+
+			filter = new GolombRiceFilterBuilder()
+				.SetKey(key)
+				.SetP(10)
+				.SetM(1U<<4)
+				.AddEntries(new [] { byteArray0, byteArray1, byteArray2 })
+				.AddScriptPubkey( Script.FromBytesUnsafe(byteArray0) )
+				.AddScriptPubkey( Script.FromBytesUnsafe(byteArray1) )
+				.AddScriptPubkey( Script.FromBytesUnsafe(byteArray2) )
+				.Build();
+			var filterSize10_4 = filter.ToBytes().Length;
+
+			Assert.Equal(3, filter.N);
+			Assert.Equal(10, filter.P);
+			Assert.Equal(1U<<4, filter.M);
+			Assert.True(filter.Match(byteArray0, testKey));
+			Assert.True(filter.Match(byteArray1, testKey));
+			Assert.True(filter.Match(byteArray2, testKey));
+			Assert.False(filter.Match(new byte[]{ 6, 7, 8}, testKey));
+			Assert.Equal(filterSize10_4, filterSize10_10);
+
+			filter = new GolombRiceFilterBuilder()
+				.SetKey(key)
+				.SetP(8)
+				.SetM(1U<<4)
+				.AddEntries(new [] { byteArray0, byteArray1, byteArray2 })
+				.AddScriptPubkey( Script.FromBytesUnsafe(byteArray0) )
+				.AddScriptPubkey( Script.FromBytesUnsafe(byteArray1) )
+				.AddScriptPubkey( Script.FromBytesUnsafe(byteArray2) )
+				.Build();
+			var filterSize8_4 = filter.ToBytes().Length;
+
+			Assert.Equal(3, filter.N);
+			Assert.Equal(8, filter.P);
+			Assert.Equal(1U<<4, filter.M);
+			Assert.True(filter.Match(byteArray0, testKey));
+			Assert.True(filter.Match(byteArray1, testKey));
+			Assert.True(filter.Match(byteArray2, testKey));
+			Assert.False(filter.Match(new byte[]{ 6, 7, 8}, testKey));
+			Assert.True(filterSize8_4 < filterSize10_10); // filter size depends only on P parameter
+		}
+
+		[Fact]
+		[Trait("UnitTest", "UnitTest")]
+		public void CanSupportCustomeFiltersTest()
+		{
+			var blockHex = File.ReadAllText("./data/block-testnet-828575.txt");
+			var block = Block.Parse(blockHex, Network.TestNet);
+			var scripts = new HashSet<Script>();
+
+			foreach (var tx in block.Transactions)
+			{
+				for (int i = 0; i < tx.Outputs.Count; i++)
+				{
+					var output = tx.Outputs[i];
+					if (!output.ScriptPubKey.IsPayToScriptHash && output.ScriptPubKey.IsWitness)
+					{
+						var outpoint = new OutPoint(tx.GetHash(), i);
+						scripts.Add(output.ScriptPubKey);
+					}
+				}
+			}
+
+			var key = block.GetHash();
+			var testkey = key.ToBytes().SafeSubarray(0, 16);
+			var filter = new GolombRiceFilterBuilder()
+				.SetP(20)
+				.SetM(1U << 20)
+				.SetKey(key)
+				.AddEntries(scripts.Select(x => x.ToCompressedBytes()))
+				.Build();
+
+			Assert.Equal("017821b8", filter.ToString());
+			foreach (var tx in block.Transactions)
+			{
+				for (int i = 0; i < tx.Outputs.Count; i++)
+				{
+					var output = tx.Outputs[i];
+					if (!output.ScriptPubKey.IsPayToScriptHash && output.ScriptPubKey.IsWitness)
+					{
+						Assert.True(filter.Match(output.ScriptPubKey.ToCompressedBytes(), testkey));
+					}
+				}
+			}
+		}
+
+		[Fact]
+		[Trait("UnitTest", "UnitTest")]
+		public void WriteAndReadBitStreamTest()
+		{
+			var createBitStream = new Func<BitStream>(()=> {
+				var bsx = new BitStream();
+				bsx.WriteBit(false);bsx.WriteBit(true);bsx.WriteBit(false);bsx.WriteBit(true);
+				bsx.WriteBit(true);bsx.WriteBit(false);bsx.WriteBit(true);bsx.WriteBit(false);
+				bsx.WriteBit(true);bsx.WriteBit(true);bsx.WriteBit(true);bsx.WriteBit(false);
+				bsx.WriteBit(false);bsx.WriteBit(true);bsx.WriteBit(false);bsx.WriteBit(true);
+				bsx.WriteBit(true);
+				return bsx;
+			});
+
+			var bs = createBitStream();
+			bs.TryReadBit(out var bit); Assert.False(bit);
+			bs.TryReadBit(out bit); Assert.True(bit);
+			bs.TryReadBit(out bit); Assert.False(bit);
+			bs.TryReadBit(out bit); Assert.True(bit);
+			bs.TryReadBit(out bit); Assert.True(bit);
+			bs.TryReadBit(out bit); Assert.False(bit);
+			bs.TryReadBit(out bit); Assert.True(bit);
+			bs.TryReadBit(out bit); Assert.False(bit);
+			bs.TryReadBit(out bit); Assert.True(bit);
+			bs.TryReadBit(out bit); Assert.True(bit);
+			bs.TryReadBit(out bit); Assert.True(bit);
+			bs.TryReadBit(out bit); Assert.False(bit);
+			bs.TryReadBit(out bit); Assert.False(bit);
+			bs.TryReadBit(out bit); Assert.True(bit);
+			bs.TryReadBit(out bit); Assert.False(bit);
+			bs.TryReadBit(out bit); Assert.True(bit);
+			bs.TryReadBit(out bit); Assert.True(bit);
+
+			bs = createBitStream();
+			bs.TryReadBits(17, out var bits);
+			Assert.Equal(46539U, bits);
+
+			bs = createBitStream();
+
+			bs.TryReadByte(out var b);
+			Assert.Equal(90, b);
+			bs.TryReadByte(out b);
+			Assert.Equal(229, b);
+
+			bs = createBitStream();
+
+			bs.TryReadBit(out bit);
+			bs.TryReadByte(out b);
+			Assert.Equal(181, b);
+			bs.TryReadByte(out b);
+			Assert.Equal(203, b);
+
+			bs = createBitStream();
+
+			bs.TryReadBit(out bit);
+			bs.TryReadBit(out bit);
+			bs.TryReadBit(out bit);
+
+			bs.TryReadBits(14, out bits);
+			Assert.Equal(13771U, bits);
 		}
 	}
 }
