@@ -23,7 +23,7 @@ namespace NBitcoin.Tests
 				var i= 0;
 				var testBlockHeight = test[i++]; 
 				var testBlockHash = uint256.Parse((string)test[i++]);
-				var testBlock = Block.Parse((string)test[i++]);
+				var testBlock = Block.Parse((string)test[i++], Network.Main);
 				var testPreviousBasicHeader = uint256.Parse((string)test[i++]);
 				var testBasicFilter = (string)test[i++];
 				var testBasicHeader = (string)test[i++];
@@ -355,6 +355,61 @@ namespace NBitcoin.Tests
 
 			bs.TryReadBits(14, out bits);
 			Assert.Equal(13771U, bits);
+		}
+
+		[Fact]
+		[Trait("UnitTest", "UnitTest")]
+		public void ReadBitStreamLimitsTest()
+		{
+			var bs = new BitStream(new byte[0]);
+			Assert.False(bs.TryReadBit(out var bit));
+			Assert.False(bit);
+
+			bs = new BitStream(new byte[1]);
+			for(var i = 0; i < 8; i++){
+				Assert.True(bs.TryReadBit(out bit));
+				Assert.False(bit);
+			}
+			Assert.False(bs.TryReadBit(out bit));
+			Assert.False(bit);
+
+			bs = new BitStream();
+			bs.WriteBit(true);
+			Assert.True(bs.TryReadBit(out bit));
+			Assert.True(bit);
+			Assert.False(bs.TryReadBit(out bit));
+			Assert.False(bit);
+		}
+
+		[Fact]
+		[Trait("UnitTest", "UnitTest")]
+		public void RealScriptPubKeyFilterTest()
+		{
+			var scripts = new List<Script>();
+			for(var i=0; i < 10_000; i++)
+			{
+				var script = new Key().PubKey.GetSegwitAddress(Network.Main).ScriptPubKey;
+				scripts.Add(script);
+			}
+
+			var key = Hashes.Hash256(Encoding.ASCII.GetBytes("A key for testing"));
+			var builder = new GolombRiceFilterBuilder()
+				.SetKey( key ) 
+				.SetP(0x20);
+
+			foreach(var script in scripts)
+			{
+				builder = builder.AddScriptPubkey(script);
+			}
+
+			var filter = builder.Build();
+
+			var keyMatch = key.ToBytes().SafeSubarray(0,16);
+			foreach(var script in scripts)
+			{
+				var match = filter.MatchAny( new[]{ script.ToBytes() }, keyMatch);
+				Assert.True(match);
+			}
 		}
 	}
 }

@@ -1,6 +1,7 @@
 ﻿#if !NOSOCKET
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,7 +14,9 @@ using System.IO;
 using NBitcoin.DataEncoders;
 using System.Net.Sockets;
 using NBitcoin.Protocol.Behaviors;
-using System.Diagnostics;
+using NBitcoin.Logging;
+using NBitcoin.Tests.Helpers;
+using Xunit.Abstractions;
 using Xunit.Sdk;
 
 namespace NBitcoin.Tests
@@ -132,6 +135,7 @@ namespace NBitcoin.Tests
 	}
 	public class ProtocolTests
 	{
+
 		[Fact]
 		[Trait("UnitTest", "UnitTest")]
 		//Copied from https://en.bitcoin.it/wiki/Protocol_specification (19/04/2014)
@@ -191,7 +195,7 @@ namespace NBitcoin.Tests
 						Test = new Action<object>(o=>
 							{
 								var addr = (AddrPayload)o;
-								Assert.Equal(1, addr.Addresses.Length);
+								Assert.Single(addr.Addresses);
 								//"Mon Dec 20 21:50:10 EST 2010"
 								var date = TimeZoneInfo.ConvertTime(addr.Addresses[0].Time,EST);
 								Assert.Equal(20,date.Day);
@@ -356,7 +360,7 @@ namespace NBitcoin.Tests
 					var tree = merkle.Object.PartialMerkleTree;
 					Assert.True(tree.Check(block.Header.HashMerkleRoot));
 					Assert.True(tree.GetMatchedTransactions().Count() >= 10);
-					Assert.True(tree.GetMatchedTransactions().Contains(knownTx));
+					Assert.Contains(knownTx, tree.GetMatchedTransactions());
 
 					List<Transaction> matched = new List<Transaction>();
 					for(int i = 0; i < tree.GetMatchedTransactions().Count(); i++)
@@ -366,7 +370,7 @@ namespace NBitcoin.Tests
 					Assert.True(matched.Count >= 10);
 					tree = tree.Trim(knownTx);
 					Assert.True(tree.GetMatchedTransactions().Count() == 1);
-					Assert.True(tree.GetMatchedTransactions().Contains(knownTx));
+					Assert.Contains(knownTx, tree.GetMatchedTransactions());
 
 					Action act = () =>
 					{
@@ -628,6 +632,32 @@ namespace NBitcoin.Tests
 			}
 		}
 
+
+		[Fact]
+		[Trait("Protocol", "Protocol")]
+		public async Task CanMaskExceptionThrownByMessageReceivers()
+		{
+			using (var builder = NodeBuilderEx.Create())
+			{
+				var node = builder.CreateNode();
+				var rpc = node.CreateRPCClient();
+				node.Start();
+				var nodeClient = node.CreateNodeClient();
+				TaskCompletionSource<bool> ok = new TaskCompletionSource<bool>();
+				nodeClient.VersionHandshake();
+				nodeClient.UncaughtException += (s, m) =>
+				{
+					ok.TrySetResult(m.GetType() == typeof(Exception) && m.Message == "test");
+				};
+				nodeClient.MessageReceived += (s, m) =>
+				{
+					throw new Exception("test");
+				};
+				nodeClient.SendMessage(new PingPayload());
+				Assert.True(await ok.Task);
+			}
+		}
+
 		[Fact]
 		[Trait("Protocol", "Protocol")]
 		public void SynchronizeChainSurviveReorg()
@@ -772,7 +802,7 @@ namespace NBitcoin.Tests
 			using(var tester = new NodeServerTester())
 			{
 				tester.Server2.Nonce = tester.Server1.Nonce;
-				Assert.Throws(typeof(InvalidOperationException), () =>
+				Assert.Throws<InvalidOperationException>(() =>
 				{
 					tester.Node1.VersionHandshake();
 				});
@@ -809,7 +839,7 @@ namespace NBitcoin.Tests
 				n1.Behaviors.Clear();
 				Thread.Sleep(1200);
 				Assert.True(n2.State == NodeState.Disconnecting || n2.State == NodeState.Offline);
-				Assert.True(n2.DisconnectReason.Reason.StartsWith("Pong timeout", StringComparison.Ordinal));
+				Assert.StartsWith("Pong timeout", n2.DisconnectReason.Reason, StringComparison.Ordinal);
 			}
 		}
 
@@ -844,6 +874,15 @@ namespace NBitcoin.Tests
 			}
 		}
 
+		[Fact]
+		[Trait("UnitTest", "UnitTest")]
+		public void CanRoundtripCmpctBlock()
+		{
+			Block block = Network.Main.Consensus.ConsensusFactory.CreateBlock();
+			block.Transactions.Add(Network.Main.Consensus.ConsensusFactory.CreateTransaction());
+			var cmpct = new CmpctBlockPayload(block);
+			cmpct.Clone();
+		}
 
 		[Fact]
 		[Trait("UnitTest", "UnitTest")]
@@ -851,7 +890,7 @@ namespace NBitcoin.Tests
 		{
 			var hex = "f9beb4d972656a6563740000000000003a000000db7f7e7802747812156261642d74786e732d696e707574732d7370656e74577a9694da4ff41ae999f6591cff3749ad6a7db19435f3d8af5fecbcff824196";
 			Message message = new Message();
-			message.ReadWrite(Encoders.Hex.DecodeData(hex));
+			message.ReadWrite(Encoders.Hex.DecodeData(hex), Network.Main);
 			var reject = (RejectPayload)message.Payload;
 			Assert.True(reject.Message == "tx");
 			Assert.True(reject.Code == RejectCode.DUPLICATE);
@@ -860,26 +899,26 @@ namespace NBitcoin.Tests
 			Assert.True(reject.Hash == uint256.Parse("964182ffbcec5fafd8f33594b17d6aad4937ff1c59f699e91af44fda94967a57"));
 		}
 
-#if WIN
 		[Fact]
 		[Trait("Protocol", "Protocol")]
 		public void CanDownloadBlock()
-		{
+		{	
 			using(var builder = NodeBuilderEx.Create())
 			{
 				var node = builder.CreateNode(true).CreateNodeClient();
 				node.VersionHandshake();
-				node.SendMessageAsync(new GetDataPayload(new InventoryVector()
-				{
-					Hash = Network.RegTest.GenesisHash,
-					Type = InventoryType.MSG_BLOCK
-				}));
-
-				var block = node.ReceiveMessage<BlockPayload>();
-				Assert.True(block.Object.CheckMerkleRoot());
+				using (var listener = node.CreateListener())
+				{ 
+					node.SendMessageAsync(new GetDataPayload(new InventoryVector()
+					{
+						Hash = Network.RegTest.GenesisHash,
+						Type = InventoryType.MSG_BLOCK
+					}));
+					var block = listener.ReceivePayload<BlockPayload>();
+					Assert.True(block.Object.CheckMerkleRoot());
+				}
 			}
 		}
-#endif
 
 		[Fact]
 		[Trait("Protocol", "Protocol")]

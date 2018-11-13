@@ -18,7 +18,7 @@ matrix:
       osx_image: xcode8.3 # dotnet requires at least this version
 
 before_install:
-  - if [ $TRAVIS_OS_NAME = linux ]; then sudo apt-get -qq update; fi
+  - if [ $TRAVIS_OS_NAME = linux ]; then sudo apt-get -qq update; EXTRA_CONSTANT=-p:BuildConstants=NOCONSENSUSLIB; fi
   - if [ $TRAVIS_OS_NAME = osx ]; then ulimit -S -n 4096; EXTRA_CONSTANT=-p:BuildConstants=NOCONSENSUSLIB; fi
 
 script:

@@ -137,12 +137,14 @@ namespace NBitcoin.Tests
 		{
 		}
 
+		Network Network => Network.Main;
+
 		[Fact]
 		[Trait("UnitTest", "UnitTest")]
 		public void CanBuildTransactionWithSubstractFeeAndSendEstimatedFees()
 		{
 			var signer = new Key();
-			var builder = new TransactionBuilder();
+			var builder = Network.CreateTransactionBuilder();
 			builder.AddKeys(signer);
 			builder.AddCoins(RandomCoin(signer, Money.Coins(1)));
 			builder.Send(new Key().ScriptPubKey, Money.Coins(1));
@@ -150,11 +152,11 @@ namespace NBitcoin.Tests
 			builder.SendEstimatedFees(new FeeRate(Money.Satoshis(100), 1));
 			var v = VerifyFees(builder, new FeeRate(Money.Satoshis(100), 1));
 			Assert.Equal(v.expectedBaseSize, v.baseSize); // No signature here, should be fix
-			Assert.True(v.witSize - v.expectedWitsize < 2); // the signature size might vary of 1 or 2 bytes
+			Assert.True(v.witSize - v.expectedWitsize < 4); // the signature size might vary
 
 			for(int i = 0; i < 100; i++)
 			{
-				builder = new TransactionBuilder();
+				builder = Network.CreateTransactionBuilder();
 				for(int ii = 0; ii < 1 + RandomUtils.GetUInt32() % 10; ii++)
 				{
 					var signersCount = 1 + (int)(RandomUtils.GetUInt32() % 6);
@@ -195,7 +197,7 @@ namespace NBitcoin.Tests
 			var carol = new Key();
 			var bob = new Key();
 
-			var builder = new TransactionBuilder();
+			var builder = Network.CreateTransactionBuilder();
 			builder.StandardTransactionPolicy.CheckFee = false;
 			Transaction tx = builder
 				.AddCoins(RandomCoin2(alice, Money.Coins(1.0m)))
@@ -211,18 +213,18 @@ namespace NBitcoin.Tests
 
 			Assert.Equal(2, tx.Inputs.Count);
 			Assert.Equal(3, tx.Outputs.Count);
-			Assert.Equal(1, tx.Outputs
+			Assert.Single(tx.Outputs
 								.Where(o => o.ScriptPubKey == bob.ScriptPubKey)
 								.Where(o => o.Value == Money.Coins(0.3m) + Money.Coins(0.1m))
-								.Count());
-			Assert.Equal(1, tx.Outputs
+);
+			Assert.Single(tx.Outputs
 							  .Where(o => o.ScriptPubKey == alice.ScriptPubKey)
 							  .Where(o => o.Value == Money.Coins(0.7m))
-							  .Count());
-			Assert.Equal(1, tx.Outputs
+);
+			Assert.Single(tx.Outputs
 								.Where(o => o.ScriptPubKey == carol.ScriptPubKey)
 								.Where(o => o.Value == Money.Coins(1.0m))
-								.Count());
+);
 		}
 
 		[Fact]

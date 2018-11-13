@@ -72,6 +72,7 @@ namespace NBitcoin
 		STEALTH_ADDRESS,
 		ASSET_ID,
 		COLORED_ADDRESS,
+		BLINDED_ADDRESS,
 		MAX_BASE58_TYPES,
 	};
 
@@ -83,7 +84,7 @@ namespace NBitcoin
 
 	public partial class Network
 	{
-		internal byte[][] base58Prefixes = new byte[12][];
+		internal byte[][] base58Prefixes = new byte[13][];
 		internal Bech32Encoder[] bech32Encoders = new Bech32Encoder[2];
 
 		public uint MaxP2PVersion
@@ -126,6 +127,11 @@ namespace NBitcoin
 				throw new ArgumentNullException(nameof(bytes));
 			var encoder = network.GetBech32Encoder(type, true);
 			return encoder.Encode(witnessVersion, bytes);
+		}
+
+		public Transaction CreateTransaction()
+		{
+			return Consensus.ConsensusFactory.CreateTransaction();
 		}
 	}
 
@@ -405,7 +411,7 @@ namespace NBitcoin
 			_HashGenesisBlock = new Lazy<uint256>(()=>
 			{
 				var block = ConsensusFactory.CreateBlock();
-				block.ReadWrite(genesis);
+				block.ReadWrite(genesis, ConsensusFactory);
 				return block.GetHash();
 			}, true);
 		}
@@ -551,6 +557,16 @@ namespace NBitcoin
 			var consensus = new Consensus();
 			Fill(consensus);
 			return consensus;
+		}
+
+		public TimeSpan GetExpectedTimeFor(double blockCount)
+		{
+			return TimeSpan.FromSeconds(blockCount * PowTargetSpacing.TotalSeconds);
+		}
+
+		public double GetExpectedBlocksFor(TimeSpan timeSpan)
+		{
+			return timeSpan.TotalSeconds / PowTargetSpacing.TotalSeconds;
 		}
 
 		protected void Fill(Consensus consensus)
@@ -987,19 +1003,12 @@ namespace NBitcoin
 		{
 			Transaction txNew = Consensus.ConsensusFactory.CreateTransaction();
 			txNew.Version = 1;
-			txNew.AddInput(new TxIn()
-			{
-				ScriptSig = new Script(Op.GetPushOp(486604799), new Op()
+			txNew.Inputs.Add(scriptSig: new Script(Op.GetPushOp(486604799), new Op()
 				{
 					Code = (OpcodeType)0x1,
 					PushData = new[] { (byte)4 }
-				}, Op.GetPushOp(Encoders.ASCII.DecodeData(pszTimestamp)))
-			});
-			txNew.AddOutput(new TxOut()
-			{
-				Value = genesisReward,
-				ScriptPubKey = genesisOutputScript
-			});
+				}, Op.GetPushOp(Encoders.ASCII.DecodeData(pszTimestamp))));
+			txNew.Outputs.Add(genesisReward, genesisOutputScript);
 			Block genesis = Consensus.ConsensusFactory.CreateBlock();
 			genesis.Header.BlockTime = Utils.UnixTimeToDateTime(nTime);
 			genesis.Header.Bits = nBits;
@@ -1209,6 +1218,15 @@ namespace NBitcoin
 			set;
 		} = new NetworkStringParser();
 
+		public TransactionBuilder CreateTransactionBuilder()
+		{
+			return consensus.ConsensusFactory.CreateTransactionBuilder();
+		}
+
+		public TransactionBuilder CreateTransactionBuilder(int seed)
+		{
+			return consensus.ConsensusFactory.CreateTransactionBuilder(seed);
+		}
 
 		public Base58CheckEncoder GetBase58CheckEncoder()
 		{
@@ -1318,7 +1336,7 @@ namespace NBitcoin
 		public Block GetGenesis()
 		{
 			var block = Consensus.ConsensusFactory.CreateBlock();
-			block.ReadWrite(_GenesisBytes);
+			block.ReadWrite(_GenesisBytes, Consensus.ConsensusFactory);
 			return block;
 		}
 

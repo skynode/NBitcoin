@@ -189,11 +189,13 @@ namespace NBitcoin.Tests
 			throw new NotSupportedException(lang);
 		}
 	}
-#if !PORTABLE
+
 	public class bip39_Codegen
 	{
 		//[Fact]
+#pragma warning disable xUnit1013 // Public method should be marked as test
 		public void GenerateHardcodedBIP39Dictionary()
+#pragma warning restore xUnit1013 // Public method should be marked as test
 		{
 			StringBuilder builder = new StringBuilder();
 			foreach(var lang in new[] { Language.ChineseSimplified, Language.ChineseTraditional, Language.English, Language.Japanese, Language.Spanish, Language.French })
@@ -305,5 +307,4 @@ namespace NBitcoin.Tests
 			return data.Replace("\n", "\\n");
 		}
 	}
-#endif
 }

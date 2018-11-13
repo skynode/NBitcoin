@@ -9,6 +9,8 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using NBitcoin.Logging;
 
 namespace NBitcoin.Protocol
 {
@@ -1139,15 +1141,18 @@ namespace NBitcoin.Protocol
 
 		internal void DiscoverPeers(Network network, NodeConnectionParameters parameters, int peerToFind)
 		{
-			TraceCorrelation traceCorrelation = new TraceCorrelation(NodeServerTrace.Trace, "Discovering nodes");
+
+			Logs.NodeServer.LogTrace("Discovering nodes");
+
 			int found = 0;
 
-			using(traceCorrelation.Open())
 			{
 				while(found < peerToFind)
 				{
 					parameters.ConnectCancellation.ThrowIfCancellationRequested();
-					NodeServerTrace.PeerTableRemainingPeerToGet(-found + peerToFind);
+
+					Logs.NodeServer.LogTrace("Remaining peer to get {remainingPeerCount}" , (-found + peerToFind));
+					
 					List<NetworkAddress> peers = new List<NetworkAddress>();
 					peers.AddRange(this.GetAddr());
 					if(peers.Count == 0)
@@ -1159,7 +1164,6 @@ namespace NBitcoin.Protocol
 							return;
 					}
 
-
 					CancellationTokenSource peerTableFull = new CancellationTokenSource();
 					CancellationToken loopCancel = CancellationTokenSource.CreateLinkedTokenSource(peerTableFull.Token, parameters.ConnectCancellation).Token;
 					try
@@ -1170,43 +1174,45 @@ namespace NBitcoin.Protocol
 							CancellationToken = loopCancel,
 						}, p =>
 						{
-							CancellationTokenSource timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-							var cancelConnection = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, loopCancel);
-							Node n = null;
-							try
+							using(CancellationTokenSource timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
+							using(var cancelConnection = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, loopCancel))
 							{
-								var param2 = parameters.Clone();
-								param2.ConnectCancellation = cancelConnection.Token;
-								var addrman = param2.TemplateBehaviors.Find<AddressManagerBehavior>();
-								param2.TemplateBehaviors.Clear();
-								param2.TemplateBehaviors.Add(addrman);
-								n = Node.Connect(network, p.Endpoint, param2);
-								n.VersionHandshake(cancelConnection.Token);
-								n.MessageReceived += (s, a) =>
+								Node n = null;
+								try
 								{
-									var addr = (a.Message.Payload as AddrPayload);
-									if(addr != null)
+									var param2 = parameters.Clone();
+									param2.ConnectCancellation = cancelConnection.Token;
+									var addrman = param2.TemplateBehaviors.Find<AddressManagerBehavior>();
+									param2.TemplateBehaviors.Clear();
+									param2.TemplateBehaviors.Add(addrman);
+									n = Node.Connect(network, p.Endpoint, param2);
+									n.VersionHandshake(cancelConnection.Token);
+									n.MessageReceived += (s, a) =>
 									{
-										Interlocked.Add(ref found, addr.Addresses.Length);
-										if(found >= peerToFind)
-											peerTableFull.Cancel();
-									}
-								};
-								n.SendMessageAsync(new GetAddrPayload());
-								loopCancel.WaitHandle.WaitOne(2000);
-							}
-							catch
-							{
-							}
-							finally
-							{
-								if(n != null)
-									n.DisconnectAsync();
+										var addr = (a.Message.Payload as AddrPayload);
+										if(addr != null)
+										{
+											Interlocked.Add(ref found, addr.Addresses.Length);
+											if(found >= peerToFind)
+												peerTableFull.Cancel();
+										}
+									};
+									n.SendMessageAsync(new GetAddrPayload());
+									loopCancel.WaitHandle.WaitOne(2000);
+								}
+								catch
+								{
+								}
+								finally
+								{
+									if(n != null)
+										n.DisconnectAsync();
+								}
 							}
 							if(found >= peerToFind)
 								peerTableFull.Cancel();
 							else
-								NodeServerTrace.Information("Need " + (-found + peerToFind) + " more peers");
+								Logs.NodeServer.LogInformation("Need {neededPeerCount} more peers", (-found + peerToFind));
 						});
 					}
 					catch(OperationCanceledException)

@@ -6,9 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
-#if !PORTABLE
 using System.Net.Http;
-#endif
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
@@ -72,7 +70,7 @@ namespace NBitcoin.Tests
 			BitcoinUrlBuilder url = new BitcoinUrlBuilder("bitcoin:?r=https://merchant.com/pay.php?h%3D2a8628fc2fbe&idontknow=test");
 
 			Assert.Equal("test", url.UnknowParameters["idontknow"]);
-			Assert.Equal(1, url.UnknowParameters.Count);
+			Assert.Single(url.UnknowParameters);
 		}
 
 		private BitcoinUrlBuilder CreateBuilder(string uri)
@@ -95,11 +93,11 @@ namespace NBitcoin.Tests
 		{
 			using(var fs = File.OpenRead(path))
 			{
-				return PaymentACK.Load(fs);
+				return PaymentACK.Load(fs, Network.Main);
 			}
 		}
 
-#if WIN
+#if CLASSICDOTNET
 		[Fact]
 		[Trait("UnitTest", "UnitTest")]
 		public void CanReadPaymentRequest()
@@ -145,7 +143,7 @@ namespace NBitcoin.Tests
 			}
 		}
 
-#if WIN
+#if CLASSICDOTNET
 		[Fact]
 		[Trait("UnitTest", "UnitTest")]
 		public void CanReadTestVectorPayments()
@@ -228,7 +226,7 @@ namespace NBitcoin.Tests
 			Assert.Equal("thanks merchant !", ack.Payment.Memo);
 			Assert.Equal(2, ack.Payment.Transactions.Count);
 			Assert.Equal(2, ack.Payment.RefundTo.Count);
-			AssertEx.CollectionEquals(ack.ToBytes(), PaymentACK.Load(ack.ToBytes()).ToBytes());
+			AssertEx.CollectionEquals(ack.ToBytes(), PaymentACK.Load(ack.ToBytes(), Network.Main).ToBytes());
 			AssertEx.CollectionEquals(ack.ToBytes(), File.ReadAllBytes("data/paymentack.data"));
 		}
 		[Fact]
@@ -238,14 +236,14 @@ namespace NBitcoin.Tests
 			var request = LoadPaymentRequest("data/payreq1_sha1.paymentrequest");
 			var payment = request.CreatePayment();
 			AssertEx.CollectionEquals(request.Details.MerchantData, payment.MerchantData);
-			AssertEx.CollectionEquals(payment.ToBytes(), PaymentMessage.Load(payment.ToBytes()).ToBytes());
+			AssertEx.CollectionEquals(payment.ToBytes(), PaymentMessage.Load(payment.ToBytes(), Network.Main).ToBytes());
 			payment.Memo = "thanks merchant !";
-			AssertEx.CollectionEquals(payment.ToBytes(), PaymentMessage.Load(payment.ToBytes()).ToBytes());
+			AssertEx.CollectionEquals(payment.ToBytes(), PaymentMessage.Load(payment.ToBytes(), Network.Main).ToBytes());
 			var ack = payment.CreateACK();
-			AssertEx.CollectionEquals(ack.Payment.ToBytes(), PaymentMessage.Load(payment.ToBytes()).ToBytes());
-			AssertEx.CollectionEquals(ack.ToBytes(), PaymentACK.Load(ack.ToBytes()).ToBytes());
+			AssertEx.CollectionEquals(ack.Payment.ToBytes(), PaymentMessage.Load(payment.ToBytes(), Network.Main).ToBytes());
+			AssertEx.CollectionEquals(ack.ToBytes(), PaymentACK.Load(ack.ToBytes(), Network.Main).ToBytes());
 			ack.Memo = "thanks customer !";
-			AssertEx.CollectionEquals(ack.ToBytes(), PaymentACK.Load(ack.ToBytes()).ToBytes());
+			AssertEx.CollectionEquals(ack.ToBytes(), PaymentACK.Load(ack.ToBytes(), Network.Main).ToBytes());
 		}
 #if !NOHTTPCLIENT && !NOHTTPSERVER
 		[Fact]
