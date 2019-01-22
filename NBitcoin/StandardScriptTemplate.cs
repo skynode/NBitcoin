@@ -126,8 +126,18 @@ namespace NBitcoin
 				return _Instance;
 			}
 		}
+
 		public Script GenerateScriptPubKey(int sigCount, params PubKey[] keys)
 		{
+			return GenerateScriptPubKey(sigCount, false, keys);
+		}
+
+		public Script GenerateScriptPubKey(int sigCount, bool sort, params PubKey[] keys)
+		{
+			if (keys == null)
+				throw new ArgumentNullException(nameof(keys));
+			if (sort)
+				Array.Sort(keys);
 			List<Op> ops = new List<Op>();
 			var push = Op.GetPushOp(sigCount);
 			if(!push.IsSmallUInt)
@@ -136,6 +146,7 @@ namespace NBitcoin
 			var keyCount = Op.GetPushOp(keys.Length);
 			if(!keyCount.IsSmallUInt)
 				throw new ArgumentOutOfRangeException("key count should be less or equal to 16");
+
 			foreach(var key in keys)
 			{
 				ops.Add(Op.GetPushOp(key.ToBytes()));
@@ -305,6 +316,11 @@ namespace NBitcoin
 		public TransactionSignature[] GetMultisigSignatures()
 		{
 			return PayToMultiSigTemplate.Instance.ExtractScriptSigParameters(new Script(Pushes.Select(p => Op.GetPushOp(p)).ToArray()));
+		}
+
+		public PubKey[] GetMultisigPubKeys()
+		{
+			return PayToMultiSigTemplate.Instance.ExtractScriptPubKeyParameters(RedeemScript).PubKeys;
 		}
 	}
 	//https://github.com/bitcoin/bips/blob/master/bip-0016.mediawiki
@@ -836,7 +852,7 @@ namespace NBitcoin
 			{
 				return new PayToWitPubkeyHashScriptSigParameters()
 				{
-					TransactionSignature = (witScript[0].Length == 1 && witScript[0][0] == 0) ? null : new TransactionSignature(witScript[0]),
+					TransactionSignature = (witScript[0].Length == 0) ? null : new TransactionSignature(witScript[0]),
 					PublicKey = new PubKey(witScript[1], true),
 				};
 			}
@@ -849,7 +865,7 @@ namespace NBitcoin
 		private bool CheckWitScriptCore(WitScript witScript)
 		{
 			return witScript.PushCount == 2 &&
-				   ((witScript[0].Length == 1 && witScript[0][0] == 0) || (TransactionSignature.IsValid(witScript[0], ScriptVerify.None))) &&
+				   ((witScript[0].Length == 0) || (TransactionSignature.IsValid(witScript[0], ScriptVerify.None))) &&
 				   PubKey.Check(witScript[1], false);
 		}
 

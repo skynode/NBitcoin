@@ -151,10 +151,10 @@ namespace NBitcoin.Tests
 			spending.Inputs.Add(new TxIn(tx.Outputs.AsCoins().First().Outpoint, new Script()));
 			spending.Inputs[0].Sequence = 1;
 
-			Assert.Equal(expectedResult, spending.Inputs.AsIndexedInputs().First().VerifyScript(tx.Outputs[0].ScriptPubKey));
+			Assert.Equal(expectedResult, spending.Inputs.AsIndexedInputs().First().VerifyScript(tx.Outputs[0]));
 
 			spending.Inputs[0].Sequence = uint.MaxValue;
-			Assert.False(spending.Inputs.AsIndexedInputs().First().VerifyScript(tx.Outputs[0].ScriptPubKey));
+			Assert.False(spending.Inputs.AsIndexedInputs().First().VerifyScript(tx.Outputs[0]));
 		}
 
 
@@ -373,7 +373,7 @@ namespace NBitcoin.Tests
 			var creditingTransaction = CreateCreditingTransaction(scriptPubKey, amount);
 			var spendingTransaction = CreateSpendingTransaction(wit, scriptSig, creditingTransaction);
 			ScriptError actual;
-			Script.VerifyScript(scriptSig, scriptPubKey, spendingTransaction, 0, amount, flags, SigHash.Undefined, out actual);
+			Script.VerifyScript(scriptSig, spendingTransaction, 0, new TxOut(amount, scriptPubKey), flags, SigHash.Undefined, out actual);
 			Assert.True(expectedError == actual, "Test : " + testIndex + " " + comment);			
 #if !NOCONSENSUSLIB
 			var ok = Script.VerifyScriptConsensus(scriptPubKey, spendingTransaction, 0, amount, flags);
@@ -411,13 +411,17 @@ namespace NBitcoin.Tests
 				throw new NotSupportedException("Unknown operating system");
 			}
 
-			var bitcoinBinFolderPath = Path.GetDirectoryName("TestData");
-			bitcoinPath = bitcoinPath.Substring(0, bitcoinPath.LastIndexOf('/'));
-			Directory.CreateDirectory("lib");
-			var libConsensusPath = Path.Combine(bitcoinPath, "../lib", libConsensusDll);
+			bitcoinPath = Path.GetDirectoryName(bitcoinPath);
+			var libConsensusPath = Path.Combine(bitcoinPath, "..", "lib", libConsensusDll);
+			libConsensusPath = Path.GetFullPath(libConsensusPath);
+			try
+			{
+				File.Copy(libConsensusPath, $"./{libConsensusDll}", overwrite: false);
+			}
+			catch (IOException)
+			{
 
-
-			File.Copy(libConsensusPath, "./", overwrite:false);
+			}
 #endif
 		}
 
@@ -671,15 +675,15 @@ namespace NBitcoin.Tests
 			txTo12.Outputs[0].Value = 1;
 			txTo12.Inputs[0].ScriptSig = sign_multisig(scriptPubKey12, key1, txTo12);
 
-			AssertValidScript(scriptPubKey12, txTo12, 0, flags);
+			AssertValidScript(txFrom12.Outputs[0], txTo12, 0, flags);
 			txTo12.Outputs[0].Value = 2;
-			AssertInvalidScript(scriptPubKey12, txTo12, 0, flags);
+			AssertInvalidScript(txFrom12.Outputs[0], txTo12, 0, flags);
 
 			txTo12.Inputs[0].ScriptSig = sign_multisig(scriptPubKey12, key2, txTo12);
-			AssertValidScript(scriptPubKey12, txTo12, 0, flags);
+			AssertValidScript(txFrom12.Outputs[0], txTo12, 0, flags);
 
 			txTo12.Inputs[0].ScriptSig = sign_multisig(scriptPubKey12, key3, txTo12);
-			AssertInvalidScript(scriptPubKey12, txTo12, 0, flags);
+			AssertInvalidScript(txFrom12.Outputs[0], txTo12, 0, flags);
 		}
 
 		[Fact]
@@ -715,54 +719,54 @@ namespace NBitcoin.Tests
 
 			var keys = new Key[] { key1, key2 };
 			txTo23.Inputs[0].ScriptSig = sign_multisig(scriptPubKey23, keys, txTo23);
-			AssertValidScript(scriptPubKey23, txTo23, 0, flags);
+			AssertValidScript(txFrom23.Outputs[0], txTo23, 0, flags);
 
 			keys = new Key[] { key1, key3 };
 			txTo23.Inputs[0].ScriptSig = sign_multisig(scriptPubKey23, keys, txTo23);
-			AssertValidScript(scriptPubKey23, txTo23, 0, flags);
+			AssertValidScript(txFrom23.Outputs[0], txTo23, 0, flags);
 
 			keys = new Key[] { key2, key3 };
 			txTo23.Inputs[0].ScriptSig = sign_multisig(scriptPubKey23, keys, txTo23);
-			AssertValidScript(scriptPubKey23, txTo23, 0, flags);
+			AssertValidScript(txFrom23.Outputs[0], txTo23, 0, flags);
 
 			keys = new Key[] { key2, key2 }; // Can't re-use sig
 			txTo23.Inputs[0].ScriptSig = sign_multisig(scriptPubKey23, keys, txTo23);
-			AssertInvalidScript(scriptPubKey23, txTo23, 0, flags);
+			AssertInvalidScript(txFrom23.Outputs[0], txTo23, 0, flags);
 
 			keys = new Key[] { key2, key1 }; // sigs must be in correct order
 			txTo23.Inputs[0].ScriptSig = sign_multisig(scriptPubKey23, keys, txTo23);
-			AssertInvalidScript(scriptPubKey23, txTo23, 0, flags);
+			AssertInvalidScript(txFrom23.Outputs[0], txTo23, 0, flags);
 
 			keys = new Key[] { key3, key2 }; // sigs must be in correct order
 			txTo23.Inputs[0].ScriptSig = sign_multisig(scriptPubKey23, keys, txTo23);
-			AssertInvalidScript(scriptPubKey23, txTo23, 0, flags);
+			AssertInvalidScript(txFrom23.Outputs[0], txTo23, 0, flags);
 
 			keys = new Key[] { key4, key2 };// sigs must match pubkeys
 			txTo23.Inputs[0].ScriptSig = sign_multisig(scriptPubKey23, keys, txTo23);
-			AssertInvalidScript(scriptPubKey23, txTo23, 0, flags);
+			AssertInvalidScript(txFrom23.Outputs[0], txTo23, 0, flags);
 
 			keys = new Key[] { key1, key4 };// sigs must match pubkeys
 			txTo23.Inputs[0].ScriptSig = sign_multisig(scriptPubKey23, keys, txTo23);
-			AssertInvalidScript(scriptPubKey23, txTo23, 0, flags);
+			AssertInvalidScript(txFrom23.Outputs[0], txTo23, 0, flags);
 
 			keys = new Key[0]; // Must have signatures
 			txTo23.Inputs[0].ScriptSig = sign_multisig(scriptPubKey23, keys, txTo23);
-			AssertInvalidScript(scriptPubKey23, txTo23, 0, flags);
+			AssertInvalidScript(txFrom23.Outputs[0], txTo23, 0, flags);
 		}
 
-		private void AssertInvalidScript(Script scriptPubKey, Transaction tx, int n, ScriptVerify verify)
+		private void AssertInvalidScript(TxOut txOut, Transaction tx, int n, ScriptVerify verify)
 		{
-			Assert.False(Script.VerifyScript(scriptPubKey, tx, n, null, flags));
+			Assert.False(Script.VerifyScript(tx, n, txOut, flags));
 #if !NOCONSENSUSLIB
-			Assert.False(Script.VerifyScriptConsensus(scriptPubKey, tx, (uint)n, flags));
+			Assert.False(Script.VerifyScriptConsensus(txOut.ScriptPubKey, tx, (uint)n, flags));
 #endif
 		}
 
-		private void AssertValidScript(Script scriptPubKey, Transaction tx, int n, ScriptVerify verify)
+		private void AssertValidScript(TxOut txOut, Transaction tx, int n, ScriptVerify verify)
 		{
-			Assert.True(Script.VerifyScript(scriptPubKey, tx, n, null, flags));
+			Assert.True(Script.VerifyScript(tx, n, txOut, flags));
 #if !NOCONSENSUSLIB
-			Assert.True(Script.VerifyScriptConsensus(scriptPubKey, tx, (uint)n, flags & ScriptVerify.Consensus));
+			Assert.True(Script.VerifyScriptConsensus(txOut.ScriptPubKey, tx, (uint)n, flags & ScriptVerify.Consensus));
 #endif
 		}
 
@@ -772,7 +776,9 @@ namespace NBitcoin.Tests
 		{
 			var tx = Transaction.Parse("010000000390d31c6107013d754529d8818eff285fe40a3e7635f6930fec5d12eb02107a43010000006b483045022100f40815ae3c81a0dd851cc8d376d6fd226c88416671346a9033468cca2cdcc6c202204f764623903e6c4bed1b734b75d82c40f1725e4471a55ad4f51218f86130ac038321033d710ab45bb54ac99618ad23b3c1da661631aa25f23bfe9d22b41876f1d46e4effffffff3ff04a68e22bdd52e7c8cb848156d2d158bd5515b3c50adabc87d0ca2cd3482d010000006a4730440220598d263c107004008e9e26baa1e770be30fd31ee55ded1898f7c00da05a75977022045536bead322ca246779698b9c3df3003377090f41afeca7fb2ce9e328ec4af2832102b738b531def73020bd637f32935924cc88549c8206976226d968edd3a42fc2d7ffffffff46a8dc8970eb96622f27a516adcf40e0fcec5731e7556e174f2a271aef6861c7010000006b483045022100c5b90a777a9fdc90c208dbef7290d1fc1be651f47151ee4ccff646872a454cf90220640cfbc4550446968fbbe9d12528f3adf7d87b31541569c59e790db8a220482583210391332546e22bbe8fe3af54addfad6f8b83d05fa4f5e047593d4c07ae938795beffffffff028036be26000000001976a914ddfb29efad43a667465ac59ff14dc6442a1adfca88ac3d5cba01000000001976a914b64dde7a505a13ca986c40e86e984a8dc81368b688ac00000000", Network.Main);
 			var scriptPubKey = new Script("OP_DUP OP_HASH160 34fea2c5a75414fd945273ae2d029ce1f28dafcf OP_EQUALVERIFY OP_CHECKSIG");
+#pragma warning disable CS0618 // Type or member is obsolete
 			Assert.True(tx.Inputs.AsIndexedInputs().ToArray()[2].VerifyScript(scriptPubKey, out ScriptError error));
+#pragma warning restore CS0618 // Type or member is obsolete
 		}
 
 		[Fact]
@@ -993,6 +999,47 @@ namespace NBitcoin.Tests
 
 		[Fact]
 		[Trait("UnitTest", "UnitTest")]
+		public void CanSerializeDeserializeVarInt()
+		{
+			var testCases = new (byte[] Bytes, ulong Value)[]
+			{
+				(Bytes: new byte[] { 0 }, Value: 0),
+				(Bytes: new byte[] { 1 }, Value: 1),
+				(Bytes: new byte[] { 0xFD-1  }, Value: 0xFD-1),
+				(Bytes: new byte[] { 0xFD, 0xFD, 0x00 }, Value: 0xFD),
+				(Bytes: new byte[] { 0xFD, 0xFF, 0xFF }, Value: 0xFFFF),
+				(Bytes: new byte[] { 0xFE, 0x00, 0x00, 0x01, 0x00 }, Value: 0x00010000),
+				(Bytes: new byte[] { 0xFE, 0xFF, 0xFF, 0xFF, 0xFF }, Value: 0xFFFFFFFF),
+				(Bytes: new byte[] { 0xFF, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00 }, Value: 0x0000000100000000),
+				(Bytes: new byte[] { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF }, Value: 0xFFFFFFFFFFFFFFFF)
+			};
+			foreach(var testCase in testCases)
+			{
+				var stream = new BitcoinStream(testCase.Bytes);
+				Assert.Equal(testCase.Value, VarInt.StaticRead(stream));
+				var ms = new MemoryStream();
+				stream = new BitcoinStream(ms, true);
+				VarInt.StaticWrite(stream, testCase.Value);
+				var actualBytes = ms.ToArray();
+				Assert.Equal(Encoders.Hex.EncodeData(testCase.Bytes), Encoders.Hex.EncodeData(actualBytes));
+			}
+
+			// Test on non canonic values
+			testCases = new (byte[] Bytes, ulong Value)[]
+			{
+				(Bytes: new byte[] { 0xFD, 0x01, 0x00 }, Value: 0x01),
+				(Bytes: new byte[] { 0xFE, 0x01, 0x00, 0x00, 0x00 }, Value: 0x01),
+				(Bytes: new byte[] { 0xFF, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, Value: 0x01)
+			};
+			foreach (var testCase in testCases)
+			{
+				var stream = new BitcoinStream(testCase.Bytes);
+				Assert.Equal(testCase.Value, VarInt.StaticRead(stream));
+			}
+		}
+
+		[Fact]
+		[Trait("UnitTest", "UnitTest")]
 		public void CanParseAndGenerateSegwitScripts()
 		{
 			var pubkey = new PubKey("03a65786c1a48d4167aca08cf6eb8eed081e13f45c02dc6000fd8f3bb16242579a");
@@ -1007,6 +1054,17 @@ namespace NBitcoin.Tests
 				TransactionSignature = new TransactionSignature(Encoders.Hex.DecodeData("304402206104c335e4adbb920184957f9f710b09de17d015329fde6807b9d321fd2142db02200b24ad996b4aa4ff103000348b5ad690abfd9fddae546af9e568394ed4a8311301"))
 			});
 			Assert.Equal(expected, actual);
+
+			// should be able to parse if signature is empty in p2wpkh.
+			var witScriptWithoutSig = PayToWitPubKeyHashTemplate.Instance.GenerateWitScript(null, pubkey);
+			var actualParam = PayToWitPubKeyHashTemplate.Instance.ExtractWitScriptParameters(witScriptWithoutSig);
+			Assert.NotNull(actualParam);
+			Assert.Equal(pubkey, actualParam.PublicKey);
+
+			var script = new Script("0 03a65786c1a48d4167aca08cf6eb8eed081e13f45c02dc6000fd8f3bb16242579a").ToWitScript();
+			var actualParam2 = PayToWitPubKeyHashTemplate.Instance.ExtractWitScriptParameters(script);
+			Assert.NotNull(actualParam2);
+			Assert.Equal(pubkey, actualParam2.PublicKey);
 
 			var scriptSig = new Script("304402206b782f095f52f12133a96c078b558458b84c925afdb620d96c5f5bbf483e28d502206206796ff45d80216b83c77bafc4e7951fdb10a5bf3e4041c0e6c0938079b22b01 2103");
 			var redeem = new Script(Encoders.Hex.DecodeData("2103a65786c1a48d4167aca08cf6eb8eed081e13f45c02dc6000fd8f3bb16242579aac"));
@@ -1138,6 +1196,50 @@ namespace NBitcoin.Tests
 			Assert.Null(sigParams.GetMultisigSignatures()[0]);
 			var scriptSig2 = PayToScriptHashTemplate.Instance.GenerateScriptSig(sigParams);
 			Assert.Equal(scriptSig2.ToString(), scriptSig);
+		}
+
+		[Fact]
+		[Trait("UnitTest", "UnitTest")]
+		public void MultisigScriptCanFollowBIP67()
+		{
+			// test vector 1
+			var pk1_1 = new PubKey("02ff12471208c14bd580709cb2358d98975247d8765f92bc25eab3b2763ed605f8");
+			var pk1_2 = new PubKey("02fe6f0a5a297eb38c391581c4413e084773ea23954d93f7753db7dc0adc188b2f");
+			var script = PayToMultiSigTemplate.Instance.GenerateScriptPubKey(2, true, new PubKey[] { pk1_1, pk1_2 });
+			var pksInScript = script.ToOps().Skip(1).Take(2).ToArray();
+			Assert.Equal(pksInScript[0].PushData, pk1_2.ToBytes());
+			Assert.Equal(pksInScript[1].PushData, pk1_1.ToBytes());
+			var expected = Script.FromBytesUnsafe(Encoders.Hex.DecodeData("522102fe6f0a5a297eb38c391581c4413e084773ea23954d93f7753db7dc0adc188b2f2102ff12471208c14bd580709cb2358d98975247d8765f92bc25eab3b2763ed605f852ae"));
+			Assert.Equal(expected, script);
+
+			// test vector 2 (Already sorted)
+			var pk2_1 = new PubKey("02632b12f4ac5b1d1b72b2a3b508c19172de44f6f46bcee50ba33f3f9291e47ed0");
+			var pk2_2 = new PubKey("027735a29bae7780a9755fae7a1c4374c656ac6a69ea9f3697fda61bb99a4f3e77");
+			var pk2_3 = new PubKey("02e2cc6bd5f45edd43bebe7cb9b675f0ce9ed3efe613b177588290ad188d11b404");
+			script = PayToMultiSigTemplate.Instance.GenerateScriptPubKey(2, true, new PubKey[] { pk2_1, pk2_2, pk2_3 });
+			expected = Script.FromBytesUnsafe(Encoders.Hex.DecodeData("522102632b12f4ac5b1d1b72b2a3b508c19172de44f6f46bcee50ba33f3f9291e47ed021027735a29bae7780a9755fae7a1c4374c656ac6a69ea9f3697fda61bb99a4f3e772102e2cc6bd5f45edd43bebe7cb9b675f0ce9ed3efe613b177588290ad188d11b40453ae"));
+			Assert.Equal(expected, script);
+			var scriptWithoutSort = PayToMultiSigTemplate.Instance.GenerateScriptPubKey(2, false, new PubKey[] { pk2_1, pk2_2, pk2_3 });
+			Assert.Equal(script, scriptWithoutSort);
+			scriptWithoutSort = PayToMultiSigTemplate.Instance.GenerateScriptPubKey(2, new PubKey[] { pk2_1, pk2_2, pk2_3 });
+			Assert.Equal(script, scriptWithoutSort);
+
+			// test vector 3
+			var pk3_1 = new PubKey("030000000000000000000000000000000000004141414141414141414141414141");
+			var pk3_2 = new PubKey("020000000000000000000000000000000000004141414141414141414141414141");
+			var pk3_3 = new PubKey("020000000000000000000000000000000000004141414141414141414141414140");
+			var pk3_4 = new PubKey("030000000000000000000000000000000000004141414141414141414141414140");
+			script = PayToMultiSigTemplate.Instance.GenerateScriptPubKey(2, true, new PubKey[] {pk3_1, pk3_2, pk3_3, pk3_4});
+			expected = Script.FromBytesUnsafe(Encoders.Hex.DecodeData("522102000000000000000000000000000000000000414141414141414141414141414021020000000000000000000000000000000000004141414141414141414141414141210300000000000000000000000000000000000041414141414141414141414141402103000000000000000000000000000000000000414141414141414141414141414154ae"));
+			Assert.Equal(expected, script);
+
+			// test vector 4
+			var pk4_1 = new PubKey("022df8750480ad5b26950b25c7ba79d3e37d75f640f8e5d9bcd5b150a0f85014da");
+			var pk4_2 = new PubKey("03e3818b65bcc73a7d64064106a859cc1a5a728c4345ff0b641209fba0d90de6e9");
+			var pk4_3 = new PubKey("021f2f6e1e50cb6a953935c3601284925decd3fd21bc445712576873fb8c6ebc18");
+			script = PayToMultiSigTemplate.Instance.GenerateScriptPubKey(2, true, new PubKey[] { pk4_1, pk4_2, pk4_3 });
+			expected = Script.FromBytesUnsafe(Encoders.Hex.DecodeData("5221021f2f6e1e50cb6a953935c3601284925decd3fd21bc445712576873fb8c6ebc1821022df8750480ad5b26950b25c7ba79d3e37d75f640f8e5d9bcd5b150a0f85014da2103e3818b65bcc73a7d64064106a859cc1a5a728c4345ff0b641209fba0d90de6e953ae"));
+			Assert.Equal(expected, script);
 		}
 	}
 }

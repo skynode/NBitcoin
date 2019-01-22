@@ -378,8 +378,11 @@ namespace NBitcoin.DataEncoders
 				return;
 			throw new FormatException("Invalid bech32 string, mixed case detected");
 		}
-
 		public override byte[] DecodeData(string encoded)
+		{
+			throw new NotSupportedException();
+		}
+		byte[] DecodeDataCore(string encoded)
 		{
 			if(encoded == null)
 				throw new ArgumentNullException(nameof(encoded));
@@ -405,7 +408,7 @@ namespace NBitcoin.DataEncoders
 			var hrp = Encoders.ASCII.DecodeData(encoded.Substring(0, pos));
 			if(!hrp.SequenceEqual(_Hrp))
 			{
-				throw new FormatException("Mismatching human readeable part");
+				throw new FormatException("Mismatching human readable part");
 			}
 			var data = new byte[encoded.Length - pos - 1];
 			for(int j = 0, i = pos + 1; i < encoded.Length; i++, j++)
@@ -417,7 +420,7 @@ namespace NBitcoin.DataEncoders
 			if(!VerifyChecksum(data, encoded.Length, out error))
 			{
 				if(error.Length == 0)
-					throw new FormatException("Error while veriying Bech32 checksum");
+					throw new FormatException("Error while verifying Bech32 checksum");
 				else
 					throw new Bech32FormatException($"Error in Bech32 string at {String.Join(",", error)}", error);
 			}
@@ -461,7 +464,7 @@ namespace NBitcoin.DataEncoders
 			if(addr == null)
 				throw new ArgumentNullException(nameof(addr));
 			CheckCase(addr);
-			var data = DecodeData(addr);
+			var data = DecodeDataCore(addr);
 
 			var decoded = ConvertBits(data.Skip(1), 5, 8, false);
 			if(decoded.Length < 2 || decoded.Length > 40)

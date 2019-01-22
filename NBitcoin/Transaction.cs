@@ -586,7 +586,7 @@ namespace NBitcoin
 			ScriptPubKey = scriptPubKey;
 		}
 
-		readonly static Money NullMoney = new Money(-1);
+		internal readonly static Money NullMoney = new Money(-1L);
 		Money _Value = NullMoney;
 		public virtual Money Value
 		{
@@ -713,22 +713,44 @@ namespace NBitcoin
 			set;
 		}
 
+		[Obsolete("Use VerifyScript(TxOut spentOutput, ScriptVerify scriptVerify = ScriptVerify.Standard) instead")]
 		public bool VerifyScript(Script scriptPubKey, ScriptVerify scriptVerify = ScriptVerify.Standard)
 		{
 			ScriptError unused;
 			return VerifyScript(scriptPubKey, scriptVerify, out unused);
 		}
+		public bool VerifyScript(TxOut spentOutput, ScriptVerify scriptVerify = ScriptVerify.Standard)
+		{
+			ScriptError unused;
+			return VerifyScript(spentOutput, scriptVerify, out unused);
+		}
+		[Obsolete("Use VerifyScript(TxOut spentOutput, out ScriptError error) instead")]
 		public bool VerifyScript(Script scriptPubKey, out ScriptError error)
 		{
-			return Script.VerifyScript(scriptPubKey, Transaction, (int)Index, null, out error);
+			TxOut txOut = Transaction.Outputs.CreateNewTxOut(null, scriptPubKey);
+			return Script.VerifyScript(Transaction, (int)Index, txOut, out error);
 		}
+		public bool VerifyScript(TxOut spentOutput, out ScriptError error)
+		{
+			return Script.VerifyScript(Transaction, (int)Index, spentOutput, out error);
+		}
+		[Obsolete("Use VerifyScript(TxOut spentOutput, ScriptVerify scriptVerify, out ScriptError error) instead")]
 		public bool VerifyScript(Script scriptPubKey, ScriptVerify scriptVerify, out ScriptError error)
 		{
-			return Script.VerifyScript(scriptPubKey, Transaction, (int)Index, null, scriptVerify, SigHash.Undefined, out error);
+			TxOut txOut = Transaction.Outputs.CreateNewTxOut(null, scriptPubKey);
+			return Script.VerifyScript(Transaction, (int)Index, txOut, scriptVerify, SigHash.Undefined, out error);
 		}
+
+		[Obsolete("Use VerifyScript(TxOut spentOutput, ScriptVerify scriptVerify, out ScriptError error) instead")]
 		public bool VerifyScript(Script scriptPubKey, Money value, ScriptVerify scriptVerify, out ScriptError error)
 		{
-			return Script.VerifyScript(scriptPubKey, Transaction, (int)Index, value, scriptVerify, SigHash.Undefined, out error);
+			TxOut txOut = Transaction.Outputs.CreateNewTxOut(value, scriptPubKey);
+			return Script.VerifyScript(Transaction, (int)Index, txOut, scriptVerify, SigHash.Undefined, out error);
+		}
+
+		public bool VerifyScript(TxOut spentOutput, ScriptVerify scriptVerify, out ScriptError error)
+		{
+			return Script.VerifyScript(Transaction, (int)Index, spentOutput, scriptVerify, SigHash.Undefined, out error);
 		}
 
 		public bool VerifyScript(ICoin coin, ScriptVerify scriptVerify = ScriptVerify.Standard)
@@ -739,22 +761,22 @@ namespace NBitcoin
 
 		public bool VerifyScript(ICoin coin, ScriptVerify scriptVerify, out ScriptError error)
 		{
-			return Script.VerifyScript(coin.TxOut.ScriptPubKey, Transaction, (int)Index, coin.TxOut.Value, scriptVerify, SigHash.Undefined, out error);
+			return Script.VerifyScript(Transaction, (int)Index, coin.TxOut, scriptVerify, SigHash.Undefined, out error);
 		}
 		public bool VerifyScript(ICoin coin, out ScriptError error)
 		{
 			return VerifyScript(coin, ScriptVerify.Standard, out error);
 		}
 
-		public TransactionSignature Sign(Key key, ICoin coin, SigHash sigHash)
+		public TransactionSignature Sign(Key key, ICoin coin, SigHash sigHash, bool useLowR = true)
 		{
 			var hash = GetSignatureHash(coin, sigHash);
-			return key.Sign(hash, sigHash);
+			return key.Sign(hash, sigHash, useLowR);
 		}
 
 		public uint256 GetSignatureHash(ICoin coin, SigHash sigHash = SigHash.All)
 		{
-			return Transaction.GetSignatureHash(coin.GetScriptCode(), (int)Index, sigHash, coin.TxOut.Value, coin.GetHashVersion());
+			return Transaction.GetSignatureHash(coin.GetScriptCode(), (int)Index, sigHash, coin.TxOut, coin.GetHashVersion());
 		}
 
 	}
@@ -963,7 +985,7 @@ namespace NBitcoin
 		BlockExplorer,
 	}
 
-	public class WitScript
+	public class WitScript : IEquatable<WitScript>
 	{
 		byte[][] _Pushes;
 		public WitScript(string script)
@@ -1040,6 +1062,7 @@ namespace NBitcoin
 			_Pushes = pushes.ToArray();
 		}
 
+
 		public static WitScript Load(BitcoinStream stream)
 		{
 			WitScript script = new WitScript();
@@ -1096,10 +1119,10 @@ namespace NBitcoin
 			WitScript item = obj as WitScript;
 			if (item == null)
 				return false;
-			return EqualsCore(item);
+			return Equals(item);
 		}
 
-		private bool EqualsCore(WitScript item)
+		public bool Equals(WitScript item)
 		{
 			if (_Pushes.Length != item._Pushes.Length)
 				return false;
@@ -1116,7 +1139,7 @@ namespace NBitcoin
 				return true;
 			if (((object)a == null) || ((object)b == null))
 				return false;
-			return a.EqualsCore(b);
+			return a.Equals(b);
 		}
 
 		public static bool operator !=(WitScript a, WitScript b)
@@ -1278,18 +1301,47 @@ namespace NBitcoin
 			return network.Consensus.ConsensusFactory.CreateTransaction();
 		}
 
-		[Obsolete("You should instantiate Transaction from ConsensusFactory.CreateTransaction")]
+		[Obsolete("You should instantiate Transaction from Transaction.Parse(string hex, Network network)")]
 		public Transaction(string hex, uint? version = null)
 			: this()
 		{
 			this.FromBytes(Encoders.Hex.DecodeData(hex), version);
 		}
 
-		[Obsolete("You should instantiate Transaction from ConsensusFactory.CreateTransaction")]
+		public static Transaction Parse(string hex, Network network)
+		{
+			return Parse(hex, null, network);
+		}
+		public static Transaction Parse(string hex, uint? version, Network network)
+		{
+			if (hex == null)
+				throw new ArgumentNullException(nameof(hex));
+			if (network == null)
+				throw new ArgumentNullException(nameof(network));
+			return Load(Encoders.Hex.DecodeData(hex), network);
+		}
+
+
+		[Obsolete("You should instantiate Transaction from Transaction.Load(byte[] bytes, Network network)")]
 		public Transaction(byte[] bytes)
 			: this()
 		{
 			this.FromBytes(bytes);
+		}
+
+		public static Transaction Load(byte[] bytes, Network network)
+		{
+			return Load(bytes, null, network);
+		}
+		public static Transaction Load(byte[] bytes, uint? version, Network network)
+		{
+			if (network == null)
+				throw new ArgumentNullException(nameof(network));
+			if (bytes == null)
+				throw new ArgumentNullException(nameof(bytes));
+			var transaction = network.Consensus.ConsensusFactory.CreateTransaction();
+			transaction.FromBytes(bytes, version);
+			return transaction;
 		}
 
 		public Money TotalOut
@@ -1644,7 +1696,7 @@ namespace NBitcoin
 		/// Sign a specific coin with the given secret
 		/// </summary>
 		/// <param name="secrets">Secrets</param>
-		/// <param name="coins">Coins to sign</param>
+		/// <param name="coin">Coin to sign</param>
 		public void Sign(ISecret[] secrets, ICoin coin)
 		{
 			Sign(secrets, new[] { coin });
@@ -1759,16 +1811,6 @@ namespace NBitcoin
 			return GetFormatter(format, network).ParseJson(tx);
 		}
 #endif
-
-		public static Transaction Parse(string hex, Network network)
-		{
-			var tx = network.Consensus.ConsensusFactory.CreateTransaction();
-			var data = Encoders.Hex.DecodeData(hex);
-			var stream = new BitcoinStream(data);
-			stream.ConsensusFactory = network.Consensus.ConsensusFactory;
-			tx.ReadWrite(stream);
-			return tx;
-		}
 
 
 		[Obsolete("Use Transaction.Parse(string hex, Network network)")]
@@ -2039,7 +2081,7 @@ namespace NBitcoin
 			long nValueOut = 0;
 			foreach (var txout in Outputs)
 			{
-				if (txout.Value < 0)
+				if (txout.Value < Money.Zero)
 					return TransactionCheckResult.NegativeOutput;
 				if (txout.Value > MAX_MONEY)
 					return TransactionCheckResult.OutputTooLarge;
@@ -2072,13 +2114,19 @@ namespace NBitcoin
 			return TransactionCheckResult.Success;
 		}
 
-
-		public virtual uint256 GetSignatureHash(Script scriptCode, int nIn, SigHash nHashType, Money amount, HashVersion sigversion, PrecomputedTransactionData precomputedTransactionData)
+		[Obsolete("Use Transaction.GetSignatureHash(Script scriptCode, int nIn, SigHash nHashType, TxOut spentOutput, HashVersion sigversion, PrecomputedTransactionData precomputedTransactionData) instead")]
+		public uint256 GetSignatureHash(Script scriptCode, int nIn, SigHash nHashType, Money amount, HashVersion sigversion, PrecomputedTransactionData precomputedTransactionData)
+		{
+			TxOut txOut = this.Outputs.CreateNewTxOut();
+			txOut.Value = amount;
+			return GetSignatureHash(scriptCode, nIn, nHashType, txOut, sigversion, precomputedTransactionData);
+		}
+		public virtual uint256 GetSignatureHash(Script scriptCode, int nIn, SigHash nHashType, TxOut spentOutput, HashVersion sigversion, PrecomputedTransactionData precomputedTransactionData)
 		{
 			if (sigversion == HashVersion.Witness)
 			{
-				if (amount == null)
-					throw new ArgumentException("The amount of the output being signed must be provided", "amount");
+				if (spentOutput?.Value == null || spentOutput.Value == TxOut.NullMoney)
+					throw new ArgumentException("The output being signed with the amount must be provided", nameof(spentOutput));
 				uint256 hashPrevouts = uint256.Zero;
 				uint256 hashSequence = uint256.Zero;
 				uint256 hashOutputs = uint256.Zero;
@@ -2118,7 +2166,7 @@ namespace NBitcoin
 				// may already be contain in hashSequence.
 				sss.ReadWrite(Inputs[nIn].PrevOut);
 				sss.ReadWrite(scriptCode);
-				sss.ReadWrite(amount.Satoshi);
+				sss.ReadWrite(spentOutput.Value.Satoshi);
 				sss.ReadWrite((uint)Inputs[nIn].Sequence);
 				// Outputs (none/one/all, depending on flags)
 				sss.ReadWrite(hashOutputs);
@@ -2218,9 +2266,15 @@ namespace NBitcoin
 				stream.Inner.Write(scriptCode.ToBytes(true), itBegin, (int)(reader.Inner.Position - itBegin));
 		}
 
-		public uint256 GetSignatureHash(Script scriptCode, int nIn, SigHash nHashType, Money amount = null, HashVersion sigversion = HashVersion.Original)
+		[Obsolete("Use Transaction.GetSignatureHash(Script scriptCode, int nIn, SigHash nHashType, TxOut spentOutput= null, HashVersion sigversion = HashVersion.Original) instead")]
+		public uint256 GetSignatureHash(Script scriptCode, int nIn, SigHash nHashType, Money amount, HashVersion sigversion = HashVersion.Original)
 		{
 			return this.GetSignatureHash(scriptCode, nIn, nHashType, amount, sigversion, null);
+		}
+
+		public uint256 GetSignatureHash(Script scriptCode, int nIn, SigHash nHashType, TxOut spentOutput= null, HashVersion sigversion = HashVersion.Original)
+		{
+			return this.GetSignatureHash(scriptCode, nIn, nHashType, spentOutput, sigversion, null);
 		}
 
 		private static uint256 GetHash(BitcoinStream stream)
@@ -2289,8 +2343,13 @@ namespace NBitcoin
 
 		public void FromBytes(byte[] bytes)
 		{
-			this.ReadWrite(new BitcoinStream(bytes) { ConsensusFactory = GetConsensusFactory() });
+			this.FromBytes(bytes, null);
 		}
+		public void FromBytes(byte[] bytes, uint? version)
+		{
+			this.ReadWrite(new BitcoinStream(bytes) { ConsensusFactory = GetConsensusFactory(), ProtocolVersion = version });
+		}
+
 	}
 
 	public enum TransactionCheckResult

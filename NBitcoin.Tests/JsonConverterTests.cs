@@ -1,4 +1,5 @@
-﻿using NBitcoin.JsonConverters;
+﻿using NBitcoin.BIP174;
+using NBitcoin.JsonConverters;
 using NBitcoin.OpenAsset;
 using System;
 using System.Collections.Generic;
@@ -11,6 +12,7 @@ namespace NBitcoin.Tests
 {
 	public class JsonConverterTests
 	{
+
 		[Fact]
 		[Trait("UnitTest", "UnitTest")]
 		public void CanSerializeInJson()
@@ -44,6 +46,7 @@ namespace NBitcoin.Tests
 			CanSerializeInJsonCore(new LockTime(DateTime.UtcNow));
 			CanSerializeInJsonCore(new FeeRate(Money.Satoshis(1), 1000));
 			CanSerializeInJsonCore(new FeeRate(Money.Satoshis(1000), 1000));
+			CanSerializeInJsonCore(new FeeRate(0.5m));
 		}
 
 		private T CanSerializeInJsonCore<T>(T value)

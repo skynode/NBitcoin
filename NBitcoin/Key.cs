@@ -89,11 +89,15 @@ namespace NBitcoin
 			}
 		}
 
-		public ECDSASignature Sign(uint256 hash)
+		public ECDSASignature Sign(uint256 hash, bool useLowR)
 		{
-			return _ECKey.Sign(hash);
+			return _ECKey.Sign(hash, useLowR);
 		}
 
+		public ECDSASignature Sign(uint256 hash)
+		{
+			return _ECKey.Sign(hash, true);
+		}
 
 		public string SignMessage(String message)
 		{
@@ -234,9 +238,9 @@ namespace NBitcoin
 
 		#endregion
 
-		public TransactionSignature Sign(uint256 hash, SigHash sigHash)
+		public TransactionSignature Sign(uint256 hash, SigHash sigHash, bool useLowR = true)
 		{
-			return new TransactionSignature(Sign(hash), sigHash);
+			return new TransactionSignature(Sign(hash, useLowR), sigHash);
 		}
 
 

@@ -18,10 +18,10 @@ With NuGet :
 
 Go on the [NuGet website](https://www.nuget.org/packages/NBitcoin/) for more information.
 
-The packages supports:
+The packages support:
 
 * With full features: Windows Desktop applications, Mono Desktop applications and platforms supported by [.NET Standard 1.3](https://docs.microsoft.com/en-us/dotnet/articles/standard/library) (.NET Core, Xamarin IOS, Xamarin Android, UWP and more).
-* With limited features: Platforms supported by [.NET Standard 1.1](https://docs.microsoft.com/en-us/dotnet/articles/standard/library) (Windows Phone, Windows 8.0 apps).
+* With limited features: platforms supported by [.NET Standard 1.1](https://docs.microsoft.com/en-us/dotnet/articles/standard/library) (Windows Phone, Windows 8.0 apps).
 
 To compile it by yourself, you can git clone, open the project and hit the compile button in Visual Studio.
 How to get started ? Check out this article [on CodeProject](http://www.codeproject.com/Articles/768412/NBitcoin-The-most-complete-Bitcoin-port-Part-Crypt) for some basic Bitcoin operations, or [this Introduction to NBitcoin video](https://www.youtube.com/watch?v=X4ZwRWIF49w).
@@ -32,22 +32,61 @@ How to get started ? Check out this article [on CodeProject](http://www.codeproj
 
 Find more information [here](NBitcoin.Altcoins).
 
+# How to debug in NBitcoin source code?
+
+When a new version of `NBitcoin`, `NBitcoin.Altcoins` or `NBitcoin.TestFramework` is released on Nuget, we also upload a separate symbol package (`snupkg`) with SourceLink enabled. This is enabled from version `4.1.1.73`.
+
+This means that it is possible to debug into NBitcoin code, and the source will be fetched transparently from github.
+
+This works on both Visual Studio Code and Visual Studio for Windows.
+
+## Debug inside source with Visual Studio
+
+You need to run at least Visual Studio 15.9.
+Then, you need to:
+
+* Go in `Tools / Options / Debugging / General` and turn off `Enable Just My Code`.
+* Go in `Tools / Options / Debugging / Symbols` and add `https://symbols.nuget.org/download/symbols` to the `Symbol file (.pdb) locations`, make sure it is checked.
+
+You should also check `Microsoft Symbol Server` or your debugging experience in visual studio will be slowed down.
+
+Now you can Debug your project and step inside any call to NBitcoin.
+
+## Debug inside source with Visual Studio Code
+
+Inside your `launch.json`, add the following to `.NET Core Launch (console)` configuration:
+
+```json
+"justMyCode": false,
+"symbolOptions": {
+    "searchPaths": [ "https://symbols.nuget.org/download/symbols" ],
+    "searchMicrosoftSymbolServer": true
+},
+```
+
+Now you can Debug your project and step inside any call to NBitcoin.
+
 # How to use with my own blockchain?
 
  Find more information [here](NBitcoin.Altcoins).
 
-# How to use in Unity 3.5
+# How to use in Unity?
 
-In command prompt:
+You should use at least `Unity 2018.2` using `Script Runtime Version` `.NET 4.x Equivalent` and `Api Compatibility Level` `.NET Standard 2.0`.
+You can see more on [this post](https://blogs.unity3d.com/2018/07/11/scripting-runtime-improvements-in-unity-2018-2/).
 
-```
+Then you need to compile NBitcoin:
+
+```powershell
 git clone https://github.com/MetacoSA/NBitcoin/
-cd NBitcoin
-git checkout unity35
-build-unity.bat
+cd NBitcoin/NBitcoin
+dotnet publish -c Release -f netstandard2.0
+Remove-Item -Force -Recurse .\bin\Release\netstandard2.0\publish\runtimes\
 ```
 
-Then put the two libraries NBitcoin.dll and System.Threading.Tasks.Net35.dll found in "NBitcoin\NBitcoin\bin\Release" into your asset folder.
+Then put the libraries of `.\bin\Release\netstandard2.0` into your asset folder.
+
+If you need altcoins support, use the same step but with `cd NBitcoin/NBitcoin.Altcoins` instead.
 
 # How to use in .NET Core
 
@@ -91,7 +130,6 @@ NBitcoin notably includes:
 * Full script evaluation and parsing
 * A RPC Client
 * A Rest Client
-* A SPV Wallet implementation [with sample](https://github.com/NicolasDorier/NBitcoin.SPVSample)
 * The parsing of standard scripts and creation of custom ones
 * The serialization of blocks, transactions and scripts
 * The signing and verification with private keys (with support for compact signatures) for proving ownership
@@ -100,10 +138,9 @@ NBitcoin notably includes:
 * Bech32 segwit address implementation with error detection [BIP 173](https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki)
 * Mnemonic code for generating deterministic keys ([BIP 39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki)), credits to [Thasshiznets](https://github.com/Thashiznets/BIP39.NET)
 * Hierarchical Deterministic Wallets ([BIP 32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki))
-* Payment Protocol ([BIP 70](https://github.com/bitcoin/bips/blob/master/bip-0070.mediawiki))
-* Payment URLs ([BIP 21](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki),[BIP 72](https://github.com/bitcoin/bips/blob/master/bip-0072.mediawiki))
-* Two-Factor keys ([BIP 38](http://www.codeproject.com/Articles/775226/NBitcoin-Cryptography-Part))
-* Stealth Addresses ([Also on codeproject](http://www.codeproject.com/Articles/775226/NBitcoin-Cryptography-Part))
+* Payment URLs ([BIP 21](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki))
+
+Please read our [ebook](https://programmingblockchain.gitbooks.io/programmingblockchain/content/) to understand the capabilities.
 
 NBitcoin is inspired by Bitcoin Core code but provides a simpler object oriented API (e.g., new Key().PubKey.Address.ToString() to generate a key and get the associated address). It relies on the BouncyCastle cryptography library instead of OpenSSL, yet replicates OpenSSL bugs to guarantee compatibility. NBitcoin also ports the integrality of Bitcoin Core unit tests with their original data in order to validate the compatibility of the two implementations.
 

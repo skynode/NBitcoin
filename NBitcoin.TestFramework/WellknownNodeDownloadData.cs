@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace NBitcoin.Tests
+﻿namespace NBitcoin.Tests
 {
 	public partial class NodeDownloadData
 	{
@@ -738,6 +734,67 @@ namespace NBitcoin.Tests
 			};
 		}
 
+		public class GincoinNodeDownloadData
+		{
+			public NodeDownloadData v1_1_0_0 = new NodeDownloadData()
+			{
+				Version = "1.1.0",
+				Windows = new NodeOSDownloadData()
+				{
+					DownloadLink =
+						"https://github.com/gincoin-dev/gincoin-core/releases/download/{0}.0/gincoincore-{0}-windows-64bit.exe",
+					Archive = "gincoincore-{0}-windows-64bit.exe",
+					Executable = "gincoincore-{0}-windows-64bit.exe",
+					Hash = "B64E4C334D3597FC7A094DE4CA1955DBE06E9C5856598D9A2B3D8E5907D71EF9"
+				},
+				Linux = new NodeOSDownloadData()
+				{
+					DownloadLink = 
+						"https://github.com/gincoin-dev/gincoin-core/releases/download/{0}.0/gincoin-binaries-linux-64bit.tar.gz",
+					Archive = "gincoin-binaries-linux-64bit.tar.gz",
+					Executable = "gincoin-binaries/gincoind",
+					Hash = "1C249AEC8CD3D66F8D9D49CF3AD1526736216C76200D4BB83E89657879D55F92"
+				},
+				Mac = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/gincoin-dev/gincoin-core/releases/download/{0}.0/gincoin-binaries-mac.zip",
+					Archive = "gincoin-binaries-mac.zip",
+					Executable = "gincoin-binaries-mac/gincoind",
+					Hash = "CFFE613A18AB3ABB0200EC5E100036DDF710C4EC832FBB67B3D5196CDBF541EA"
+				}
+			};
+		}
+	public class KotoNodeDownloadData
+		{
+			public NodeDownloadData v2_0_0 = new NodeDownloadData()
+			{
+				Version = "2.0.0",
+				Windows = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/Harumaki-cryptocoin/koto-releases.github.io/releases/download/{0}/koto-{0}-win64.zip",
+					Archive = "koto-{0}-win64.zip",
+					Executable = "koto-{0}-win64/daemon/kotod.exe",
+					Hash = "6bda95dc3f4597d06ecd5c5cbc450d1e0822b126de99d31e8cab1395b8eeac0a"
+				},
+				Linux = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/Harumaki-cryptocoin/koto-releases.github.io/releases/download/{0}/koto-{0}-linux64.zip",
+					Archive = "koto-{0}-linux64.zip",
+					Executable = "koto-{0}-linux64/bin/kotod",
+					Hash = "77168affc53533833f9f904bba5667629537ec43aedd54845f51096212fe7bcc"
+				},
+				Mac = new NodeOSDownloadData()
+				{
+					DownloadLink = "hhttps://github.com/Harumaki-cryptocoin/koto-releases.github.io/releases/download/{0}/koto-{0}-darwin.dmg",
+					Archive = "koto-{0}-darwin.dmg",
+					Executable = "koto-{0}/bin/kotod",
+					Hash = "6c23e649972b6c9fb828a554c1a170379a7792ad6f1ecc01210d5207d034aaa2"
+				}
+			};
+		}
+
+
+
 		public static GoByteNodeDownloadData GoByte
 		{
 			get; set;
@@ -836,6 +893,17 @@ namespace NBitcoin.Tests
 		{
 			get; set;
 		} = new LiquidNodeDownloadData();
+
+		public static GincoinNodeDownloadData Gincoin
+		{
+			get; set;
+		} = new GincoinNodeDownloadData();
+		
+		public static KotoNodeDownloadData Koto
+		{
+			get; set;
+		} = new KotoNodeDownloadData();
+
 		public bool UseSectionInConfigFile { get; private set; }
 		public string AdditionalRegtestConfig { get; private set; }
 	}

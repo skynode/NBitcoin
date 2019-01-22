@@ -19,6 +19,8 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="FsCheck" Version="2.13.0" />
+		<PackageReference Include="FsCheck.Xunit" Version="2.13.0" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.8.0" />
 		<ProjectReference Include="..\NBitcoin\NBitcoin.csproj" />
 		<ProjectReference Include="..\NBitcoin.Altcoins\NBitcoin.Altcoins.csproj" />
@@ -91,38 +93,11 @@
     <None Include="data\NicolasDorierMerchant.pfx">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="data\paymentack.data">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="data\payreq1_sha1.paymentrequest">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="data\payreq1_sha1_omitteddefault.paymentrequest">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="data\payreq1_sha256_omitteddefault.paymentrequest">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="data\payreq1_sha256.paymentrequest">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="data\payreq2_sha1.paymentrequest">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="data\payreq2_sha1_omitteddefault.paymentrequest">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="data\payreq2_sha256_omitteddefault.paymentrequest">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="data\payreq2_sha256.paymentrequest">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="data\payreq3_validchain.paymentrequest">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Include="data\peers.dat" />
     <None Include="data\script_tests.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="data\psbt.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="data\targethistory.csv">
@@ -161,7 +136,6 @@
     <Content Include="data\bip158_vectors.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="README.txt" />
   </ItemGroup>
   <ItemGroup>
     <Service Include="{82a7f48d-3b50-4b1e-b82e-3ada8210c358}" />

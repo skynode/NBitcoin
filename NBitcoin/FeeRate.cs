@@ -55,10 +55,10 @@ namespace NBitcoin
 				throw new ArgumentNullException(nameof(feePaid));
 			if(feePaid.Satoshi < 0)
 				throw new ArgumentOutOfRangeException("feePaid");
-			if(size > 0)
-				_FeePerK = feePaid * 1000 / size;
+			if (size > 0)
+				this._FeePerK = (long)((decimal)feePaid.Satoshi / (decimal)size * 1000m);
 			else
-				_FeePerK = 0;
+				_FeePerK = Money.Zero;
 		}
 
 		public FeeRate(decimal satoshiPerByte)
@@ -76,7 +76,7 @@ namespace NBitcoin
 		public Money GetFee(int virtualSize)
 		{
 			Money nFee = _FeePerK.Satoshi * virtualSize / 1000;
-			if(nFee == 0 && _FeePerK.Satoshi > 0)
+			if(nFee == Money.Zero && _FeePerK.Satoshi > Money.Zero)
 				nFee = _FeePerK.Satoshi;
 			return nFee;
 		}

@@ -1,4 +1,6 @@
 ﻿#if !NOJSONNET
+using NBitcoin.BIP174;
+using NBitcoin.Crypto;
 using NBitcoin.DataEncoders;
 using NBitcoin.Protocol;
 using Newtonsoft.Json;
@@ -75,6 +77,13 @@ namespace NBitcoin.RPC
 		rawtransactions	signrawtransaction
 		rawtransactions	fundrawtransaction
 
+		------------------ PSBT
+		psbt - decodepsbt
+		psbt - combinepsbt
+		psbt - finalizepsbt
+		psbt - createpsbt
+		psbt - convertopsbt
+
 		------------------ Utility functions
 		util			createmultisig
 		util			validateaddress
@@ -127,6 +136,8 @@ namespace NBitcoin.RPC
 		wallet			 walletlock
 		wallet			 walletpassphrasechange
 		wallet			 walletpassphrase			yes
+		wallet			 walletprocesspsbt
+		wallet			 walletcreatefundedpsbt
 	*/
 	public partial class RPCClient : IBlockRepository
 	{
@@ -298,6 +309,7 @@ namespace NBitcoin.RPC
 			CheckCapabilities(rpc, "scantxoutset", v => capabilities.SupportScanUTXOSet = v),
 			CheckCapabilities(rpc, "signrawtransactionwithkey", v => capabilities.SupportSignRawTransactionWith = v),
 			CheckCapabilities(rpc, "estimatesmartfee", v => capabilities.SupportEstimateSmartFee = v),
+			CheckCapabilities(rpc, "generatetoaddress", v => capabilities.SupportGenerateToAddress = v),
 			CheckSegwitCapabilities(rpc, v => capabilities.SupportSegwit = v));
 			await rpc.SendBatchAsync();
 			await waiting;
@@ -996,11 +1008,33 @@ namespace NBitcoin.RPC
 					services = Utils.ToUInt64(Encoders.Hex.DecodeData((string)peer["services"]), false);
 				}
 
+				IPEndPoint addressEnpoint = null;
+				try
+				{
+					addressEnpoint = Utils.ParseIpEndpoint((string)peer["addr"], this.Network.DefaultPort, false);
+				}
+				catch
+				{
+
+				}
+
+				IPEndPoint localEndpoint = null;
+				try
+				{
+					localEndpoint = Utils.ParseIpEndpoint(localAddr, this.Network.DefaultPort, false);
+				}
+				catch
+				{
+
+				}
+
 				result[i++] = new PeerInfo
 				{
 					Id = (int)peer["id"],
-					Address = Utils.ParseIpEndpoint((string)peer["addr"], this.Network.DefaultPort),
-					LocalAddress = Utils.ParseIpEndpoint(localAddr, this.Network.DefaultPort),
+					Address = addressEnpoint,
+					AddressString = (string)peer["addr"],
+					LocalAddress = localEndpoint,
+					LocalAddressString = localAddr,
 					Services = (NodeServices)services,
 					LastSend = Utils.UnixTimeToDateTime((uint)peer["lastsend"]),
 					LastReceive = Utils.UnixTimeToDateTime((uint)peer["lastrecv"]),
@@ -1303,6 +1337,68 @@ namespace NBitcoin.RPC
 			return array.Select(o => (string)o).Select(uint256.Parse).ToArray();
 		}
 
+		public MempoolEntry GetMempoolEntry(uint256 txid, bool throwIfNotFound = true)
+		{
+			return GetMempoolEntryAsync(txid, throwIfNotFound).GetAwaiter().GetResult();
+		}
+
+		public async Task<MempoolEntry> GetMempoolEntryAsync(uint256 txid, bool throwIfNotFound = true)
+		{
+			var response = await SendCommandAsync(RPCOperations.getmempoolentry, txid).ConfigureAwait(false);
+			if (throwIfNotFound)
+				response.ThrowIfError();
+			if (response.Error != null && response.Error.Code == RPCErrorCode.RPC_INVALID_ADDRESS_OR_KEY)
+				return null;
+
+			return new MempoolEntry
+			{
+				TransactionId = txid,
+				VirtualSizeBytes = response.Result["size"].Value<int>(),
+				Time = Utils.UnixTimeToDateTime(response.Result["time"].Value<long>()),
+				Height = response.Result["height"].Value<int>(),
+				DescendantCount = response.Result["descendantcount"].Value<int>(),
+				DescendantVirtualSizeBytes  = response.Result["descendantsize"].Value<int>(),
+				AncestorCount   = response.Result["ancestorcount"].Value<int>(),
+				AncestorVirtualSizeBytes = response.Result["ancestorsize"].Value<int>(),
+				TransactionIdWithWitness = uint256.Parse((string)response.Result["wtxid"]),
+				BaseFee = new Money(response.Result["fees"]["base"].Value<decimal>(), MoneyUnit.BTC),
+				ModifiedFee   = new Money(response.Result["fees"]["modified"].Value<decimal>(), MoneyUnit.BTC),
+				DescendantFees  = new Money(response.Result["fees"]["descendant"].Value<decimal>(), MoneyUnit.BTC),
+				AncestorFees    = new Money(response.Result["fees"]["ancestor"].Value<decimal>(), MoneyUnit.BTC),
+				Depends = response.Result["depends"]?.Select(x => uint256.Parse((string)x)).ToArray(),
+				SpentBy = response.Result["spentby"]?.Select(x => uint256.Parse((string)x)).ToArray()
+			};
+		}
+
+		public MempoolAcceptResult TestMempoolAccept(Transaction transaction, bool allowHighFees=false)
+		{
+			return TestMempoolAcceptAsync(transaction, allowHighFees).GetAwaiter().GetResult();
+		}
+
+		public async Task<MempoolAcceptResult> TestMempoolAcceptAsync(Transaction transaction, bool allowHighFees=false)
+		{
+			var response = await SendCommandAsync("testmempoolaccept", new[]{ transaction.ToHex() }, allowHighFees).ConfigureAwait(false);
+
+			var first = response.Result[0];
+			var allowed = first["allowed"].Value<bool>();
+
+			var rejectedCode = 0;
+			var rejectedReason = string.Empty;
+			if(!allowed)
+			{
+				var rejected = first["reject-reason"].Value<string>();
+				var separatorIdx = rejected.IndexOf(":");
+				rejectedCode = int.Parse(rejected.Substring(0, separatorIdx)); 
+				rejectedReason = rejected.Substring(separatorIdx+2); 
+			}
+			return new MempoolAcceptResult{
+				TxId=         uint256.Parse(first["txid"].Value<string>()),
+				IsAllowed=    allowed,
+				RejectCode=   (RejectCode)rejectedCode,
+				RejectReason= rejectedReason
+			};
+		}
+
 		/// <summary>
 		/// Returns details about an unspent transaction output.
 		/// </summary>
@@ -1516,15 +1612,16 @@ namespace NBitcoin.RPC
 			};
 		}
 
-#endregion
 
-#region Utility functions
+		#endregion
+
+		#region Utility functions
 
 		// Estimates the approximate fee per kilobyte needed for a transaction to begin
 		// confirmation within conf_target blocks if possible and return the number of blocks
 		// for which the estimate is valid.Uses virtual transaction size as defined
 		// in BIP 141 (witness data is discounted).
-#region Fee Estimation
+		#region Fee Estimation
 
 		/// <summary>
 		/// (>= Bitcoin Core v0.14) Get the estimated fee per kb for being confirmed in nblock
@@ -1741,13 +1838,38 @@ namespace NBitcoin.RPC
 		{
 			if (nBlocks < 0)
 				throw new ArgumentOutOfRangeException("nBlocks");
-			var result = (JArray)(await SendCommandAsync(RPCOperations.generate, nBlocks).ConfigureAwait(false)).Result;
-			return result.Select(r => new uint256(r.Value<string>())).ToArray();
+
+			if (Capabilities != null && Capabilities.SupportGenerateToAddress)
+			{
+				var address = await GetNewAddressAsync();
+				return await GenerateToAddressAsync(nBlocks, address);
+			}
+			else
+			{
+				var result = (JArray)(await SendCommandAsync(RPCOperations.generate, nBlocks).ConfigureAwait(false)).Result;
+				return result.Select(r => new uint256(r.Value<string>())).ToArray();
+			}
 		}
 
 		public uint256[] Generate(int nBlocks)
 		{
 			return GenerateAsync(nBlocks).GetAwaiter().GetResult();
+		}
+
+		public async Task<uint256[]> GenerateToAddressAsync(int nBlocks, BitcoinAddress address)
+		{
+			if (nBlocks < 0)
+				throw new ArgumentOutOfRangeException(nameof(nBlocks));
+			if (address == null)
+				throw new ArgumentNullException(nameof(address));
+
+			var result = (JArray)(await SendCommandAsync(RPCOperations.generatetoaddress, nBlocks, address.ToString()).ConfigureAwait(false)).Result;
+			return result.Select(r => new uint256(r.Value<string>())).ToArray();
+		}
+
+		public uint256[] GenerateToAddress(int nBlocks, BitcoinAddress address)
+		{
+			return GenerateToAddressAsync(nBlocks, address).GetAwaiter().GetResult();
 		}
 
 #region Region Hidden Methods
@@ -1804,10 +1926,12 @@ namespace NBitcoin.RPC
 		{
 			get; internal set;
 		}
+		public string AddressString { get; set; }
 		public IPEndPoint LocalAddress
 		{
 			get; internal set;
 		}
+		public string LocalAddressString { get; set; }
 		public NodeServices Services
 		{
 			get; internal set;
@@ -1982,6 +2106,79 @@ namespace NBitcoin.RPC
 		{
 		}
 	}
+
+	public class MempoolEntry
+	{
+		/// <summary>
+		/// The transaction id (must be in mempool.)
+		/// </summary>
+		public uint256 TransactionId { get; set; }
+		/// <summary>
+		/// Virtual transaction size as defined in BIP 141. This is different from actual serialized size for witness transactions as witness data is discounted.
+		/// </summary>
+		public int VirtualSizeBytes { get; set; }
+		/// <summary>
+		/// Local time transaction entered pool in seconds since 1 Jan 1970 GMT.
+		/// </summary>
+		public DateTimeOffset Time { get; set; }
+		/// <summary>
+		/// Block height when transaction entered pool.
+		/// </summary>
+		public int Height { get; set; }
+		/// <summary>
+		/// Number of in-mempool descendant transactions (including this one.)
+		/// </summary>
+		public int DescendantCount { get; set; }
+		/// <summary>
+		/// Virtual transaction size of in-mempool descendants (including this one.)
+		/// </summary>
+		public int DescendantVirtualSizeBytes { get; set; }
+		/// <summary>
+		/// Number of in-mempool ancestor transactions (including this one.)
+		/// </summary>
+		public int AncestorCount { get; set; }
+		/// <summary>
+		/// Virtual transaction size of in-mempool ancestors (including this one.)
+		/// </summary>
+		public int AncestorVirtualSizeBytes { get; set; }
+		/// <summary>
+		/// Hash of serialized transaction, including witness data.
+		/// </summary>
+		public uint256 TransactionIdWithWitness { get; set; }
+		/// <summary>
+		/// Transaction fee.
+		/// </summary>
+		public Money BaseFee { get; set; }
+		/// <summary>
+		/// Transaction fee with fee deltas used for mining priority.
+		/// </summary>
+		public Money ModifiedFee { get; set; }
+		/// <summary>
+		/// Modified fees (see above) of in-mempool ancestors (including this one.)
+		/// </summary>
+		public Money AncestorFees { get; set; }
+		/// <summary>
+		/// Modified fees (see above) of in-mempool descendants (including this one.)
+		/// </summary>
+		public Money DescendantFees { get; set; }
+		/// <summary>
+		/// Unconfirmed transactions used as inputs for this transaction.
+		/// </summary>
+		public uint256[] Depends { get; set; }
+		/// <summary>
+		/// Unconfirmed transactions spending outputs from this transaction.
+		/// </summary>
+		public uint256[] SpentBy { get; set; }
+	}
+
+	public class MempoolAcceptResult
+	{
+		public uint256 TxId { get; internal set; }
+		public bool IsAllowed { get; internal set; }
+		public RejectCode RejectCode { get; internal set; }
+		public string RejectReason { get; internal set; }
+	}
+
 
 }
 #endif
