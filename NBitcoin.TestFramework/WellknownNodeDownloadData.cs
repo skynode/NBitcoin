@@ -285,29 +285,29 @@
 
 		public class DashNodeDownloadData
 		{
-			public NodeDownloadData v0_12_2 = new NodeDownloadData()
+			public NodeDownloadData v0_13_0 = new NodeDownloadData()
 			{
-				Version = "0.12.2.3",
+				Version = "0.13.0.0",
 				Windows = new NodeOSDownloadData()
 				{
 					DownloadLink = "https://github.com/dashpay/dash/releases/download/v{0}/dashcore-{0}-win64.zip",
 					Archive = "dashcore-{0}-win64.zip",
-					Executable = "dashcore-0.12.2/bin/dashd.exe",
-					Hash = "04e95d11443d785ad9d98b04fd2313ca96d937e424be80f639b73846304d154c"
+					Executable = "dashcore-0.13.0/bin/dashd.exe",
+					Hash = "89d2e06701f948cfecea612fb6b1a0175227108990a29849fc6fcc8a28fb62fd"
 				},
 				Linux = new NodeOSDownloadData()
 				{
-					DownloadLink = "https://github.com/dashpay/dash/releases/download/v{0}/dashcore-{0}-linux64.tar.gz",
-					Archive = "dashcore-{0}-linux64.tar.gz",
-					Executable = "dashcore-0.12.2/bin/dashd",
-					Hash = "8b7c72197f87be1f5d988c274cac06f6539ddb4591a578bfb852a412022378f2"
+					DownloadLink = "https://github.com/dashpay/dash/releases/download/v{0}/dashcore-{0}-x86_64-linux-gnu.tar.gz",
+					Archive = "dashcore-{0}-x86_64-linux-gnu.tar.gz",
+					Executable = "dashcore-0.13.0/bin/dashd",
+					Hash = "99b4309c7f53b2a93d4b60a45885000b88947af2f329e24ca757ff8cf882ab18"
 				},
 				Mac = new NodeOSDownloadData()
 				{
-					DownloadLink = "https://github.com/dashpay/dash/releases/download/v{0}/dashcore-{0}-osx.dmg",
-					Archive = "dashcore-{0}-osx.dmg",
-					Executable = "dashcore-0.12.2/bin/dashd",
-					Hash = "90ca27d6733df6fc69b0fc8220f2315623fe5b0cbd1fe31f247684d51808cb81"
+					DownloadLink = "https://github.com/dashpay/dash/releases/download/v{0}/dashcore-{0}-osx-unsigned.dmg",
+					Archive = "dashcore-{0}-osx-unsigned.dmg",
+					Executable = "dashcore-0.13.0/bin/dashd",
+					Hash = "6f97f502732e5b63a431d0edb5a9d14e95ff8afb8e7eb94463566a75e7589a70"
 				}
 			};
 		}
@@ -764,7 +764,7 @@
 				}
 			};
 		}
-	public class KotoNodeDownloadData
+		public class KotoNodeDownloadData
 		{
 			public NodeDownloadData v2_0_0 = new NodeDownloadData()
 			{
@@ -793,7 +793,56 @@
 			};
 		}
 
+        public class BitcoinplusNodeDownloadData
+        {
+            public NodeDownloadData v2_7_0 = new NodeDownloadData()
+            {
+                Version = "2.7.0",
+                Windows = new NodeOSDownloadData()
+                {
+                    DownloadLink = "https://downloads.bitcoinplus.org/bitcoinplus-2.7.0.zip",
+                    Archive = "bitcoinplus-{0}-win64.zip",
+                    Executable = "bitcoinplus-{0}/bin/bitcoinplusd.exe",
+                    Hash = "3eb8fc8c57eba865c4818653f1745adbca7ee5c9065e622311907eb4d5c34273"
+                },
+                Linux = new NodeOSDownloadData()
+                {
+                    DownloadLink = "https://downloads.bitcoinplus.org/bitcoinplus-2.7.0-x86_64.tar.gz",
+                    Archive = "bitcoinplus-{0}-x86_64-linux-gnu.tar.gz",
+                    Executable = "bitcoinplus-{0}/bin/bitcoinplusd",
+                    Hash = "753547b23988124defbf9bee029b4902d6277ce467c63f2ad6588c53817b2251"
+                },
+                Mac = new NodeOSDownloadData()
+                {
+                    DownloadLink = "https://downloads.bitcoinplus.org/bitcoinplus-2.7.0-osx64.tar.gz",
+                    Archive = "Bitcoinplus-Core.dmg",
+                    Executable = "bitcoinplusd",
+                    Hash = "09d381ed0082fccd6e3af4792b975fee177cffc546fd449181a4c37b4907cff8"
+                }
+            };
+        }
 
+		public class ChaincoinNodeDownloadData
+		{
+			public NodeDownloadData v0_16_4 = new NodeDownloadData()
+			{
+				Version = "0.16.4",
+				Windows = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/fellowserf/chaincoin/releases/download/v{0}/chaincoincore-{0}-win64.zip",
+					Archive = "chaincoincore-{0}-win64.zip",
+					Executable = "chaincoincore-0.16.4/bin/chaincoind.exe",
+					Hash = "58dc6cc513fadcd9216062d332a5214fcb28a51a80883a32b3b9534093cdda2c"
+				},
+				Linux = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/chaincoin/chaincoin/releases/download/v{0}/chaincoin-{0}-x86_64-linux-gnu.tar.gz",
+					Archive = "chaincoin-{0}-x86_64-linux-gnu.tar.gz",
+					Executable = "chaincoin-0.16.4/bin/chaincoind",
+					Hash = "b841f9c2098e973217a32a6213fe2a5bfe2987dd7b5c851a38082ce191b65283"
+				}
+			};
+		}
 
 		public static GoByteNodeDownloadData GoByte
 		{
@@ -903,6 +952,16 @@
 		{
 			get; set;
 		} = new KotoNodeDownloadData();
+
+		public static BitcoinplusNodeDownloadData Bitcoinplus
+		{
+			get; set;
+		} = new BitcoinplusNodeDownloadData();
+
+		public static ChaincoinNodeDownloadData Chaincoin
+		{
+			get; set;
+		} = new ChaincoinNodeDownloadData();
 
 		public bool UseSectionInConfigFile { get; private set; }
 		public string AdditionalRegtestConfig { get; private set; }
