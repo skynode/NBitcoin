@@ -1,13 +1,15 @@
 ﻿using NBitcoin.Altcoins.Elements;
-using NBitcoin.DataEncoders;
 using NBitcoin.RPC;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
+using NBitcoin.JsonConverters;
+using Newtonsoft.Json;
 using Xunit;
+using Encoders = NBitcoin.DataEncoders.Encoders;
 
 namespace NBitcoin.Tests
 {
@@ -35,18 +37,23 @@ namespace NBitcoin.Tests
 				Assert.Equal(network.Mainnet, Network.GetNetwork(network.CryptoCode.ToLowerInvariant() + "-mainnet"));
 				Assert.Equal(network.Testnet, Network.GetNetwork(network.CryptoCode.ToLowerInvariant() + "-testnet"));
 				Assert.Equal(network.Regtest, Network.GetNetwork(network.CryptoCode.ToLowerInvariant() + "-regtest"));
+
+				foreach (var n in new[] { network.Mainnet, network.Testnet, network.Regtest })
+				{
+					n.Parse(new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, n).ToString());
+				}
 			}
 		}
 
 
 		[Fact]
-		public void CanCalculateTransactionHash()
+		public async Task CanCalculateTransactionHash()
 		{
 			using (var builder = NodeBuilderEx.Create())
 			{
 				var rpc = builder.CreateNode().CreateRPCClient();
 				builder.StartAll();
-				var blockHash = rpc.Generate(1)[0];
+				var blockHash = (await rpc.GenerateAsync(10))[0];
 				var block = rpc.GetBlock(blockHash);
 
 				Transaction walletTx = null;
@@ -71,7 +78,7 @@ namespace NBitcoin.Tests
 				var rpc = builder.CreateNode().CreateRPCClient();
 				builder.StartAll();
 				var genesis = rpc.GetBlock(0);
-				if (builder.Network == Altcoins.Liquid.Instance.Regtest)
+				if (IsElements(builder.Network))
 				{
 					Assert.Contains(genesis.Transactions.SelectMany(t => t.Outputs).OfType<ElementsTxOut>(), o => o.IsPeggedAsset == true && o.ConfidentialValue.Amount != null && o.ConfidentialValue.Amount != Money.Zero);
 				}
@@ -83,21 +90,92 @@ namespace NBitcoin.Tests
 		}
 
 		[Fact]
-		public void CanParseBlock()
+		public async Task CanParseBlock()
 		{
 			using (var builder = NodeBuilderEx.Create())
 			{
+
 				var node = builder.CreateNode();
 				builder.StartAll();
 				var rpc = node.CreateRPCClient();
-				rpc.Generate(10);
-				var hash = rpc.GetBestBlockHash();
-				var b = rpc.GetBlock(hash);
+				await rpc.GenerateAsync(10);
+				var hash = await rpc.GetBestBlockHashAsync();
+				var b = await rpc.GetBlockAsync(hash);
 				Assert.NotNull(b);
 				Assert.Equal(hash, b.GetHash());
 
 				new ConcurrentChain(builder.Network);
 			}
+		}
+		[Fact]
+		public void ElementsAddressSerializationTest()
+		{
+
+			var network = Altcoins.Liquid.Instance.Regtest;
+			var address =
+				"el1qqvx2mprx8re8pd7xjeg9tu8w3jllhcty05l0hlyvlsaj0rce90nk97ze47dv3sy356nuxhjlpms73ztf8lalkerz9ndvg0rva";
+			var  bitcoinBlindedAddress=new BitcoinBlindedAddress(address, network);
+			var seria = new JsonSerializerSettings();
+			Serializer.RegisterFrontConverters(seria, network);
+			var serializer = JsonSerializer.Create(seria);
+			using (var textWriter = new StringWriter())
+			{
+				 serializer.Serialize(textWriter, bitcoinBlindedAddress);
+
+				 Assert.Equal(address,textWriter.ToString().Trim('"'));
+
+				 using (var textReader = new JsonTextReader(new StringReader(textWriter.ToString())))
+				 {
+
+					 Assert.Equal(bitcoinBlindedAddress, serializer.Deserialize<BitcoinAddress>(textReader));
+					 Assert.Equal(bitcoinBlindedAddress, serializer.Deserialize<BitcoinBlindedAddress>(textReader));
+					 Assert.Throws<JsonObjectException>(() =>
+					 {
+						 Assert.Equal(bitcoinBlindedAddress, serializer.Deserialize<IDestination>(textReader));
+					 });
+					 Assert.Throws<ArgumentNullException>(() =>
+					 {
+						 Assert.Equal(bitcoinBlindedAddress, serializer.Deserialize<IBitcoinString>(textReader));
+					 });
+				 }
+			}
+
+		}
+
+		[Fact]
+		public void ElementsAddressTests()
+		{
+
+			var network = Altcoins.Liquid.Instance.Mainnet;
+			//p2sh-segwit blidned addresses mainnet
+			var key = Key.Parse("L22adb3BwuUxLoE8jDhNS7y9e92AYaHpXH5HSXZtFUKdJddEuFgm",network );
+			var blindingKey =
+				new Key(Encoders.Hex.DecodeData("bb1cbb24decbf8510c0db6ced89a0fca20382ef0aba1fcffc0f70b4310320892"));
+			var pubBlindingKey = new PubKey("0287bad01b847963609da945cd5a08a1937649f7adbfdba5dc7e9ff46a44e54bed");
+			Assert.Equal(blindingKey.PubKey, pubBlindingKey);
+			var p2sh = key.PubKey.GetAddress(ScriptPubKeyType.SegwitP2SH, network);
+			Assert.Equal("GtqMkbR82hDis4EPKAaBNSKHY2ZR3ue4Ef", p2sh.ToString());
+			var blinded = new BitcoinBlindedAddress("VJL9DzChzwuw7Amnb1SL7M5WEq4TXmzZeAWzNFM5ULcr84gUEpu46Hbs1hZoYJXVkaqM5E3YxAyHy18N", network);
+			Assert.Equal(blinded.ToString(), new BitcoinBlindedAddress(pubBlindingKey, p2sh ).ToString());
+
+			//legacy blinded addresses mainnet
+			key = Key.Parse("L2EApGmxCemfhVHRmgXa1TWRoEaoiKfJHfvfmcPpRzF2v6neHqZv",network );
+			var legacy = key.PubKey.GetAddress(ScriptPubKeyType.Legacy, network);
+			Assert.Equal("QCAGkwismL6CZ8LR1Bvbzx1z3S7dfNsPwv", legacy.ToString());
+			blinded = new BitcoinBlindedAddress("VTpxFwLujc7Z8ufVaVxz1JJq7wVcmq6dxc4dDVBa9jK1zyHfuTUXQpZAhG4JJjv2DYGTKRW5r39RuHXF", network);
+			Assert.Equal(blinded.ToString(), new BitcoinBlindedAddress(new PubKey("029c293fbb855b709d7af1b696f26b16de06de6746616ebee32aee07be9aadc5f0"), legacy ).ToString());
+
+
+			//segwit blinded addresses mainnet
+			key = Key.Parse("KxYLpF8yCrphfji3AFzDFurjFfZum9wFhqzpQVeGAFRi4Gtewu6z",network );
+			var segwit = key.PubKey.GetAddress(ScriptPubKeyType.Segwit, network);
+			Assert.Equal("ex1qrqm9fah7lu9vf6t8v8tsjg0ul9gdtd89gwqcfz", segwit.ToString());
+			blinded = new BitcoinBlindedAddress("lq1qqds20c9qasz0y9fup3wc8xca6ceeyf7e4w6wd9l4qd4vwh887l76gxpk2nm0alc2cn5kwcwhpysle72s6k6w2uhhtgwsltf66", network);
+			var computed =
+				new BitcoinBlindedAddress(
+					new PubKey("0360a7e0a0ec04f2153c0c5d839b1dd6339227d9abb4e697f5036ac75ce7f7fda4"), segwit);
+
+			Assert.Equal(blinded.ToString(), computed.ToString());
 		}
 
 		[Fact]
@@ -111,7 +189,7 @@ namespace NBitcoin.Tests
 				var rpc = node.CreateRPCClient();
 
 				var alice = new Key().GetBitcoinSecret(builder.Network);
-				var aliceAddress = alice.GetAddress();
+				BitcoinAddress aliceAddress = alice.GetAddress(ScriptPubKeyType.Legacy);
 				var txid = rpc.SendToAddress(aliceAddress, Money.Coins(1.0m));
 				var tx = rpc.GetRawTransaction(txid);
 				var coin = tx.Outputs.AsCoins().First(c => c.ScriptPubKey == aliceAddress.ScriptPubKey);
@@ -129,6 +207,30 @@ namespace NBitcoin.Tests
 				txbuilder.Verify(signed, out var err);
 				Assert.True(txbuilder.Verify(signed));
 				rpc.SendRawTransaction(signed);
+
+				// Let's try P2SH with 2 coins
+				aliceAddress = alice.PubKey.ScriptPubKey.GetScriptAddress(builder.Network);
+				txid = rpc.SendToAddress(aliceAddress, Money.Coins(1.0m));
+				tx = rpc.GetRawTransaction(txid);
+				coin = tx.Outputs.AsCoins().First(c => c.ScriptPubKey == aliceAddress.ScriptPubKey);
+
+				txid = rpc.SendToAddress(aliceAddress, Money.Coins(1.0m));
+				tx = rpc.GetRawTransaction(txid);
+				var coin2 = tx.Outputs.AsCoins().First(c => c.ScriptPubKey == aliceAddress.ScriptPubKey);
+
+				txbuilder = builder.Network.CreateTransactionBuilder()
+								.AddCoins(new[] { coin.ToScriptCoin(alice.PubKey.ScriptPubKey), coin2.ToScriptCoin(alice.PubKey.ScriptPubKey) })
+								.AddKeys(alice)
+								.SendAll(new Key().ScriptPubKey)
+								.SendFees(Money.Coins(0.00001m))
+								.SubtractFees()
+								.SetChange(aliceAddress);
+
+				signed = txbuilder.BuildTransaction(false);
+				txbuilder.SignTransactionInPlace(signed);
+				txbuilder.Verify(signed, out err);
+				Assert.True(txbuilder.Verify(signed));
+				rpc.SendRawTransaction(signed);
 			}
 		}
 
@@ -143,7 +245,7 @@ namespace NBitcoin.Tests
 				var addr2 = BitcoinAddress.Create(addr, builder.Network).ToString();
 				Assert.Equal(addr, addr2);
 
-				var address = (BitcoinAddress)new Key().PubKey.GetAddress(builder.Network);
+				var address = (BitcoinAddress)new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, builder.Network);
 
 				// Test normal address
 				var isValid = ((JObject)node.CreateRPCClient().SendCommand("validateaddress", address.ToString()).Result)["isvalid"].Value<bool>();
@@ -166,7 +268,6 @@ namespace NBitcoin.Tests
 			{
 				var node = builder.CreateNode();
 				builder.StartAll();
-				node.Generate(builder.Network.Consensus.CoinbaseMaturity + 1);
 				var rpc = node.CreateRPCClient();
 				rpc.ScanRPCCapabilities();
 				Assert.NotNull(rpc.Capabilities);
@@ -182,8 +283,8 @@ namespace NBitcoin.Tests
 					{
 						AddressType = AddressType.Bech32
 					});
-					// If this fail, rpc support segwit bug you said it does not
-					Assert.Equal(rpc.Capabilities.SupportSegwit, address.ScriptPubKey.IsWitness);
+					// If this fail, rpc support segwit but you said it does not
+					Assert.Equal(rpc.Capabilities.SupportSegwit, address.ScriptPubKey.IsScriptType(ScriptType.Witness));
 					if (rpc.Capabilities.SupportSegwit)
 					{
 						Assert.True(builder.Network.Consensus.SupportSegwit, "The node RPC support segwit, but Network.Consensus.SupportSegwit is set to false");
@@ -228,6 +329,11 @@ namespace NBitcoin.Tests
 		{
 			using (var builder = NodeBuilderEx.Create())
 			{
+				if (IsElements(builder.Network))
+				{
+					//no pow in liquid
+					return;
+				}
 				var node = builder.CreateNode();
 				builder.StartAll();
 				node.Generate(100);
@@ -241,7 +347,7 @@ namespace NBitcoin.Tests
 		}
 
 		[Fact]
-		public void CorrectCoinMaturity()
+		public async Task CorrectCoinMaturity()
 		{
 			using (var builder = NodeBuilderEx.Create())
 			{
@@ -249,9 +355,20 @@ namespace NBitcoin.Tests
 				builder.StartAll();
 				node.Generate(builder.Network.Consensus.CoinbaseMaturity);
 				var rpc = node.CreateRPCClient();
-				Assert.Equal(Money.Zero, rpc.GetBalance());
-				node.Generate(1);
-				Assert.NotEqual(Money.Zero, rpc.GetBalance());
+				if (IsElements(node.Network))
+				{
+					Assert.Contains((await rpc.GetBalancesAsync()),
+						pair => pair.Value == Money.FromUnit(2100000, MoneyUnit.BTC));
+					node.Generate(1);
+					Assert.Contains((await rpc.GetBalancesAsync()),
+						pair => pair.Value == Money.FromUnit(2100000, MoneyUnit.BTC));
+				}
+				else
+				{
+					Assert.Equal(Money.Zero, await rpc.GetBalanceAsync());
+					node.Generate(1);
+					Assert.NotEqual(Money.Zero,await rpc.GetBalanceAsync());
+				}
 			}
 		}
 
@@ -277,6 +394,11 @@ namespace NBitcoin.Tests
 				var b2 = nodeClient.GetBlocks(new Protocol.SynchronizeChainOptions() { SkipPoWCheck = true }).ToArray()[50];
 				Assert.Equal(b2.Header.GetType(), chain.GetBlock(50).Header.GetType());
 			}
+		}
+
+		private bool IsElements(Network nodeNetwork)
+		{
+			return nodeNetwork.NetworkSet == Altcoins.Liquid.Instance;
 		}
 	}
 }

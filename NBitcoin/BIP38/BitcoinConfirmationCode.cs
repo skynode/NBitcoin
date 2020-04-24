@@ -1,7 +1,9 @@
 ﻿using NBitcoin.Crypto;
 using NBitcoin.DataEncoders;
+#if !NO_BC
 using NBitcoin.BouncyCastle.Math;
 using NBitcoin.BouncyCastle.Math.EC;
+#endif
 using System;
 using System.Linq;
 
@@ -48,9 +50,9 @@ namespace NBitcoin
 			get
 			{
 				var hasLotSequence = (vchData[0] & 0x04) != 0;
-				if(!hasLotSequence)
+				if (!hasLotSequence)
 					return null;
-				if(_LotSequence == null)
+				if (_LotSequence == null)
 				{
 					_LotSequence = new LotSequence(OwnerEntropy.SafeSubarray(4, 4));
 				}
@@ -97,32 +99,38 @@ namespace NBitcoin
 			pointbprefix = (byte)(pointbprefix ^ (byte)(derived[63] & (byte)0x01));
 
 			//Optional since ArithmeticException will catch it, but it saves some times
-			if(pointbprefix != 0x02 && pointbprefix != 0x03)
+			if (pointbprefix != 0x02 && pointbprefix != 0x03)
 				return false;
 			var pointb = BitcoinEncryptedSecret.DecryptKey(EncryptedPointB.Skip(1).ToArray(), derived);
 			pointb = new byte[] { pointbprefix }.Concat(pointb).ToArray();
 
 			//4.ECMultiply pointb by passfactor. Use the resulting EC point as a public key
+
+#if HAS_SPAN
+			if (!NBitcoinContext.Instance.TryCreatePubKey(pointb, out var pk) || pk is null)
+				return false;
+			PubKey pubkey = new PubKey(pk.MultTweak(passfactor), true);
+#else
 			var curve = ECKey.Secp256k1;
 			ECPoint pointbec;
 			try
 			{
 				pointbec = curve.Curve.DecodePoint(pointb);
 			}
-			catch(ArgumentException)
+			catch (ArgumentException)
 			{
 				return false;
 			}
-			catch(ArithmeticException)
+			catch (ArithmeticException)
 			{
 				return false;
 			}
 			PubKey pubkey = new PubKey(pointbec.Multiply(new BigInteger(1, passfactor)).GetEncoded());
-
+#endif
 			//and hash it into address using either compressed or uncompressed public key methodology as specifid in flagbyte.
 			pubkey = IsCompressed ? pubkey.Compress() : pubkey.Decompress();
 
-			var actualhash = BitcoinEncryptedSecretEC.HashAddress(pubkey.GetAddress(Network));
+			var actualhash = BitcoinEncryptedSecretEC.HashAddress(pubkey.GetAddress(ScriptPubKeyType.Legacy, Network));
 			var expectedhash = BitcoinEncryptedSecretEC.HashAddress(expectedAddress);
 
 			return Utils.ArrayEqual(actualhash, expectedhash);

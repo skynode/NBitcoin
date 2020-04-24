@@ -1,6 +1,6 @@
 ﻿#if !NOJSONNET
-using NBitcoin.BIP174;
 using NBitcoin.DataEncoders;
+using NBitcoin.JsonConverters;
 using NBitcoin.Protocol;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -221,26 +221,26 @@ namespace NBitcoin.RPC
 
 		private JObject FundRawTransactionOptionsToJson(FundRawTransactionOptions options)
 		{
-				var jOptions = new JObject();
-				if (options.ChangeAddress != null)
-					jOptions.Add(new JProperty("changeAddress", options.ChangeAddress.ToString()));
-				if (options.ChangePosition != null)
-					jOptions.Add(new JProperty("changePosition", options.ChangePosition.Value));
-				jOptions.Add(new JProperty("includeWatching", options.IncludeWatching));
-				jOptions.Add(new JProperty("lockUnspents", options.LockUnspents));
-				if (options.ReserveChangeKey != null)
-					jOptions.Add(new JProperty("reserveChangeKey", options.ReserveChangeKey));
-				if (options.FeeRate != null)
-					jOptions.Add(new JProperty("feeRate", options.FeeRate.GetFee(1000).ToDecimal(MoneyUnit.BTC)));
-				if (options.SubtractFeeFromOutputs != null)
+			var jOptions = new JObject();
+			if (options.ChangeAddress != null)
+				jOptions.Add(new JProperty("changeAddress", options.ChangeAddress.ToString()));
+			if (options.ChangePosition != null)
+				jOptions.Add(new JProperty("changePosition", options.ChangePosition.Value));
+			jOptions.Add(new JProperty("includeWatching", options.IncludeWatching));
+			jOptions.Add(new JProperty("lockUnspents", options.LockUnspents));
+			if (options.ReserveChangeKey != null)
+				jOptions.Add(new JProperty("reserveChangeKey", options.ReserveChangeKey));
+			if (options.FeeRate != null)
+				jOptions.Add(new JProperty("feeRate", options.FeeRate.GetFee(1000).ToDecimal(MoneyUnit.BTC)));
+			if (options.SubtractFeeFromOutputs != null)
+			{
+				JArray array = new JArray();
+				foreach (var v in options.SubtractFeeFromOutputs)
 				{
-					JArray array = new JArray();
-					foreach (var v in options.SubtractFeeFromOutputs)
-					{
-						array.Add(new JValue(v));
-					}
-					jOptions.Add(new JProperty("subtractFeeFromOutputs", array));
+					array.Add(new JValue(v));
 				}
+				jOptions.Add(new JProperty("subtractFeeFromOutputs", array));
+			}
 			return jOptions;
 		}
 
@@ -278,7 +278,7 @@ namespace NBitcoin.RPC
 		public async Task<Money> GetReceivedByAddressAsync(BitcoinAddress address)
 		{
 			var response = await SendCommandAsync(RPCOperations.getreceivedbyaddress, address.ToString()).ConfigureAwait(false);
-			return Money.Coins(response.Result.Value<decimal>());
+			return GetMoney(response);
 		}
 
 		/// <summary>
@@ -296,7 +296,7 @@ namespace NBitcoin.RPC
 		public Money GetReceivedByAddress(BitcoinAddress address, int confirmations)
 		{
 			var response = SendCommand(RPCOperations.getreceivedbyaddress, address.ToString(), confirmations);
-			return Money.Coins(response.Result.Value<decimal>());
+			return GetMoney(response);
 		}
 
 		/// <summary>
@@ -314,7 +314,7 @@ namespace NBitcoin.RPC
 		public async Task<Money> GetReceivedByAddressAsync(BitcoinAddress address, int confirmations)
 		{
 			var response = await SendCommandAsync(RPCOperations.getreceivedbyaddress, address.ToString(), confirmations).ConfigureAwait(false);
-			return Money.Coins(response.Result.Value<decimal>());
+			return GetMoney(response);
 		}
 
 
@@ -327,7 +327,7 @@ namespace NBitcoin.RPC
 
 		public void ImportPrivKey(BitcoinSecret secret, string label, bool rescan)
 		{
-			SendCommand(RPCOperations.importprivkey, secret.ToWif(), label, rescan);
+			ImportPrivKeyAsync(secret, label, rescan).GetAwaiter().GetResult();
 		}
 
 		public async Task ImportPrivKeyAsync(BitcoinSecret secret)
@@ -337,7 +337,15 @@ namespace NBitcoin.RPC
 
 		public async Task ImportPrivKeyAsync(BitcoinSecret secret, string label, bool rescan)
 		{
-			await SendCommandAsync(RPCOperations.importprivkey, secret.ToWif(), label, rescan).ConfigureAwait(false);
+			try
+			{
+				await SendCommandAsync(RPCOperations.importprivkey, secret.ToWif(), label, rescan).ConfigureAwait(false);
+			}
+			catch (RPCException ex) when (label is null && ex.RPCCode == RPCErrorCode.RPC_MISC_ERROR)
+			{
+				// Some old node (like dogecoin) don't support null label
+				await SendCommandAsync(RPCOperations.importprivkey, secret.ToWif(), "*", rescan).ConfigureAwait(false);
+			}
 		}
 
 
@@ -391,16 +399,31 @@ namespace NBitcoin.RPC
 			ImportMultiAsync(addresses, rescan).GetAwaiter().GetResult();
 		}
 
+
+		JsonSerializerSettings _JsonSerializer;
+		JsonSerializerSettings JsonSerializerSettings
+		{
+			get
+			{
+				if (_JsonSerializer == null)
+				{
+					var seria = new JsonSerializerSettings();
+					Serializer.RegisterFrontConverters(seria, Network);
+					_JsonSerializer = seria;
+				}
+				return _JsonSerializer;
+			}
+		}
 		public async Task ImportMultiAsync(ImportMultiAddress[] addresses, bool rescan)
 		{
 			var parameters = new List<object>();
 
 			var array = new JArray();
 			parameters.Add(array);
-
+			var seria = JsonSerializer.CreateDefault(JsonSerializerSettings);
 			foreach (var addr in addresses)
 			{
-				var obj = JObject.FromObject(addr);
+				var obj = JObject.FromObject(addr, seria);
 				if (obj["timestamp"] == null || obj["timestamp"].Type == JTokenType.Null)
 					obj["timestamp"] = "now";
 				else
@@ -892,7 +915,7 @@ namespace NBitcoin.RPC
 
 			var response = await SendCommandAsync(RPCOperations.walletprocesspsbt, psbt.ToBase64(), sign, SigHashToString(sighashType), bip32derivs).ConfigureAwait(false);
 			var result = (JObject)response.Result;
-			var psbt2 = PSBT.Parse(result.Property("psbt").Value.Value<string>());
+			var psbt2 = PSBT.Parse(result.Property("psbt").Value.Value<string>(), Network.Main);
 			var complete = result.Property("complete").Value.Value<bool>();
 
 			return new WalletProcessPSBTResponse(psbt2, complete);
@@ -917,13 +940,13 @@ namespace NBitcoin.RPC
 		{
 			var values = new object[] { };
 			if (inputs == null)
-				inputs = new TxIn[] {};
+				inputs = new TxIn[] { };
 			if (outputs == null)
 				throw new ArgumentNullException(nameof(outputs));
 
 			var rpcInputs = inputs.Select(i => i.ToRPCInputs()).ToArray();
 
-			var outputToSend = new JObject {};
+			var outputToSend = new JObject { };
 			if (outputs.Item1 != null)
 			{
 				foreach (var kv in outputs.Item1)
@@ -955,7 +978,7 @@ namespace NBitcoin.RPC
 				jOptions,
 				bip32derivs).ConfigureAwait(false);
 			var result = (JObject)response.Result;
-			var psbt = PSBT.Parse(result.Property("psbt").Value.Value<string>());
+			var psbt = PSBT.Parse(result.Property("psbt").Value.Value<string>(), Network.Main);
 			var fee = Money.Coins(result.Property("fee").Value.Value<decimal>());
 			var changePos = result.Property("changepos").Value.Value<int>();
 			var tmp = changePos == -1 ? (int?)null : (int?)changePos;
@@ -1008,6 +1031,13 @@ namespace NBitcoin.RPC
 			}
 		}
 
+		private Money GetMoney(RPCResponse response)
+		{
+			decimal coins = response.Result is JValue jVal
+							? Convert.ToDecimal(jVal.Value)
+							: response.Result.Value<decimal>();
+			return Money.Coins(coins);
+		}
 	}
 }
 #endif

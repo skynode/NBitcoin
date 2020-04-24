@@ -1,5 +1,4 @@
 ﻿#if !NOJSONNET
-using NBitcoin.BIP174;
 using NBitcoin.Crypto;
 using NBitcoin.DataEncoders;
 using NBitcoin.Protocol;
@@ -12,49 +11,51 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using static NBitcoin.RPC.BlockchainInfo;
 
 namespace NBitcoin.RPC
 {
 	/*
-		Category			Name						Implemented 
+		Category			Name						Implemented
 		------------------ --------------------------- -----------------------
-		------------------ Overall control/query calls 
+		------------------ Overall control/query calls
 		control			getinfo
 		control			help
 		control			stop
 
 		------------------ P2P networking
 		network			getnetworkinfo
-		network			addnode					  Yes
+		network			addnode						Yes
 		network			disconnectnode
-		network			getaddednodeinfo			 Yes
+		network			getaddednodeinfo			Yes
 		network			getconnectioncount
 		network			getnettotals
-		network			getpeerinfo				  Yes
+		network			getpeerinfo					Yes
 		network			ping
 		network			setban
 		network			listbanned
 		network			clearbanned
 
 		------------------ Block chain and UTXO
-		blockchain		 getblockchaininfo			Yes
-		blockchain		 getbestblockhash			 Yes
-		blockchain		 getblockcount				Yes
-		blockchain		 getblock					 Yes
-		blockchain		 getblockhash				 Yes
-		blockchain		 getchaintips
-		blockchain		 getdifficulty
-		blockchain		 getmempoolinfo
-		blockchain		 getrawmempool				Yes
-		blockchain		 gettxout					Yes
-		blockchain		 gettxoutproof
-		blockchain		 verifytxoutproof
-		blockchain		 gettxoutsetinfo
-		blockchain		 verifychain
+		blockchain		getblockchaininfo			Yes
+		blockchain		getbestblockhash			Yes
+		blockchain		getblockcount				Yes
+		blockchain		getblock					Yes
+		blockchain		getblockhash				Yes
+		blockchain		getchaintips
+		blockchain		getdifficulty
+		blockchain		getmempoolinfo
+		blockchain		getrawmempool				Yes
+		blockchain		gettxout					Yes
+		blockchain		gettxoutproof
+		blockchain		verifytxoutproof
+		blockchain		gettxoutsetinfo				Yes
+		blockchain		verifychain
 
 		------------------ Mining
 		mining			 getblocktemplate
@@ -88,8 +89,8 @@ namespace NBitcoin.RPC
 		util			createmultisig
 		util			validateaddress
 		util			verifymessage
-		util			estimatefee				  Yes
-		util			estimatesmartfee			  Yes
+		util			estimatefee					Yes
+		util			estimatesmartfee			Yes
 		------------------ Not shown in help
 		hidden			invalidateblock				Yes
 		hidden			reconsiderblock
@@ -98,8 +99,8 @@ namespace NBitcoin.RPC
 
 		------------------ Wallet
 		wallet			 addmultisigaddress
-		wallet			 backupwallet				 Yes
-		wallet			 dumpprivkey				  Yes
+		wallet			 backupwallet				Yes
+		wallet			 dumpprivkey				Yes
 		wallet			 dumpwallet
 		wallet			 encryptwallet
 		wallet			 getaccountaddress			Yes
@@ -117,15 +118,15 @@ namespace NBitcoin.RPC
 		wallet			 importwallet
 		wallet			 importaddress				Yes
 		wallet			 keypoolrefill
-		wallet			 listaccounts				 Yes
-		wallet			 listaddressgroupings		 Yes
+		wallet			 listaccounts				Yes
+		wallet			 listaddressgroupings		Yes
 		wallet			 listlockunspent
 		wallet			 listreceivedbyaccount
 		wallet			 listreceivedbyaddress
 		wallet			 listsinceblock
 		wallet			 listtransactions
-		wallet			 listunspent				  Yes
-		wallet			 lockunspent				  Yes
+		wallet			 listunspent				Yes
+		wallet			 lockunspent				Yes
 		wallet			 move
 		wallet			 sendfrom
 		wallet			 sendmany
@@ -135,12 +136,37 @@ namespace NBitcoin.RPC
 		wallet			 signmessage
 		wallet			 walletlock
 		wallet			 walletpassphrasechange
-		wallet			 walletpassphrase			yes
+		wallet			 walletpassphrase			Yes
 		wallet			 walletprocesspsbt
 		wallet			 walletcreatefundedpsbt
 	*/
 	public partial class RPCClient : IBlockRepository
 	{
+		public static string GetRPCAuth(NetworkCredential credentials)
+		{
+			if (credentials == null)
+				throw new ArgumentNullException(nameof(credentials));
+			var salt = Encoders.Hex.EncodeData(RandomUtils.GetBytes(16));
+			var nobom = new UTF8Encoding(false);
+			var result = Hashes.HMACSHA256(nobom.GetBytes(salt), nobom.GetBytes(credentials.Password));
+			return $"{credentials.UserName}:{salt}${Encoders.Hex.EncodeData(result)}";
+		}
+
+		private static Lazy<HttpClient> _Shared = new Lazy<HttpClient>(() => new HttpClient() { Timeout = System.Threading.Timeout.InfiniteTimeSpan });
+
+		HttpClient _HttpClient;
+		public HttpClient HttpClient
+		{
+			get
+			{
+				return _HttpClient ?? _Shared.Value;
+			}
+			set
+			{
+				_HttpClient = value;
+			}
+		}
+
 		private string _Authentication;
 		private readonly Uri _address;
 		public Uri Address
@@ -231,7 +257,7 @@ namespace NBitcoin.RPC
 
 			if (_Authentication == null)
 			{
-				TryRenewCookie(null);
+				TryRenewCookie();
 			}
 		}
 
@@ -308,14 +334,22 @@ namespace NBitcoin.RPC
 			SetVersion(capabilities),
 			CheckCapabilities(rpc, "scantxoutset", v => capabilities.SupportScanUTXOSet = v),
 			CheckCapabilities(rpc, "signrawtransactionwithkey", v => capabilities.SupportSignRawTransactionWith = v),
+			CheckCapabilities(rpc, "testmempoolaccept", v => capabilities.SupportTestMempoolAccept = v),
 			CheckCapabilities(rpc, "estimatesmartfee", v => capabilities.SupportEstimateSmartFee = v),
 			CheckCapabilities(rpc, "generatetoaddress", v => capabilities.SupportGenerateToAddress = v),
 			CheckSegwitCapabilities(rpc, v => capabilities.SupportSegwit = v));
-			await rpc.SendBatchAsync();
-			await waiting;
+			await rpc.SendBatchAsync().ConfigureAwait(false);
+			await waiting.ConfigureAwait(false);
 #if !NETSTANDARD1X
 			Thread.MemoryBarrier();
 #endif
+			if (!capabilities.SupportGetNetworkInfo)
+			{
+#pragma warning disable CS0618 // Type or member is obsolete
+				var getInfo = await SendCommandAsync(RPCOperations.getinfo);
+#pragma warning restore CS0618 // Type or member is obsolete
+				capabilities.Version = ((JObject)getInfo.Result)["version"].Value<int>();
+			}
 			Capabilities = capabilities;
 			return capabilities;
 		}
@@ -332,13 +366,6 @@ namespace NBitcoin.RPC
 			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND || ex.RPCCode == RPCErrorCode.RPC_METHOD_DEPRECATED)
 			{
 				capabilities.SupportGetNetworkInfo = false;
-			}
-
-			{
-#pragma warning disable CS0618 // Type or member is obsolete
-				var getInfo = await SendCommandAsync(RPCOperations.getinfo);
-#pragma warning restore CS0618 // Type or member is obsolete
-				capabilities.Version = ((JObject)getInfo.Result)["version"].Value<int>();
 			}
 		}
 
@@ -361,7 +388,7 @@ namespace NBitcoin.RPC
 			}
 			try
 			{
-				var result = await rpc.SendCommandAsync("validateaddress", new[] { address.ToString() });
+				var result = await rpc.SendCommandAsync("validateaddress", new[] { address.ToString() }).ConfigureAwait(false);
 				result.ThrowIfError();
 				setResult(result.Result["isvalid"].Value<bool>());
 			}
@@ -369,13 +396,17 @@ namespace NBitcoin.RPC
 			{
 				setResult(ex.RPCCode == RPCErrorCode.RPC_TYPE_ERROR);
 			}
+			catch
+			{
+				setResult(false);
+			}
 		}
 
 		private static async Task CheckCapabilities(Func<Task> command, Action<bool> setResult)
 		{
 			try
 			{
-				await command();
+				await command().ConfigureAwait(false);
 				setResult(true);
 			}
 			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND || ex.RPCCode == RPCErrorCode.RPC_METHOD_DEPRECATED)
@@ -385,6 +416,10 @@ namespace NBitcoin.RPC
 			catch (RPCException)
 			{
 				setResult(true);
+			}
+			catch
+			{
+				setResult(false);
 			}
 		}
 		private static Task CheckCapabilities(RPCClient rpc, string command, Action<bool> setResult)
@@ -483,9 +518,18 @@ namespace NBitcoin.RPC
 			{
 				_BatchedRequests = new ConcurrentQueue<Tuple<RPCRequest, TaskCompletionSource<RPCResponse>>>(),
 				Capabilities = Capabilities,
-#if !NETSTANDARD1X
-				RequestTimeout = RequestTimeout
-#endif
+				RequestTimeout = RequestTimeout,
+				_HttpClient = _HttpClient
+			};
+		}
+		public RPCClient Clone()
+		{
+			return new RPCClient(CredentialString, Address, Network)
+			{
+				_BatchedRequests = _BatchedRequests,
+				Capabilities = Capabilities,
+				RequestTimeout = RequestTimeout,
+				_HttpClient = _HttpClient
 			};
 		}
 
@@ -602,6 +646,33 @@ namespace NBitcoin.RPC
 			}
 		}
 
+		public async Task StopAsync()
+		{
+			await SendCommandAsync(RPCOperations.stop).ConfigureAwait(false);
+		}
+
+		public void Stop()
+		{
+			SendCommand(RPCOperations.stop);
+		}
+
+		/// <summary>
+		/// Returns the total uptime of the server.
+		/// </summary>
+		public TimeSpan Uptime()
+		{
+			return UptimeAsync().GetAwaiter().GetResult();
+		}
+
+		/// <summary>
+		/// Returns the total uptime of the server.
+		/// </summary>
+		public async Task<TimeSpan> UptimeAsync()
+		{
+			var res = await SendCommandAsync(RPCOperations.uptime).ConfigureAwait(false);
+			return TimeSpan.FromSeconds(res.Result.Value<double>());
+		}
+
 		/// <summary>
 		/// Scans the unspent transaction output set for entries that match certain output descriptors.
 		/// </summary>
@@ -630,7 +701,9 @@ namespace NBitcoin.RPC
 			var jobj = result.Result as JObject;
 			var amount = Money.Coins(jobj.Property("total_amount").Value.Value<decimal>());
 			var success = jobj.Property("success").Value.Value<bool>();
-			var searchedItems = (int)jobj.Property("searched_items").Value.Value<long>();
+			//searched_items
+
+			var searchedItems = (int)(jobj.Property("txouts") ?? jobj.Property("searched_items")).Value.Value<long>();
 			var outputs = new List<ScanTxoutOutput>();
 			foreach (var unspent in (jobj.Property("unspents").Value as JArray).OfType<JObject>())
 			{
@@ -668,7 +741,7 @@ namespace NBitcoin.RPC
 		/// <returns>The progress in %</returns>
 		public async Task<decimal?> GetStatusScanTxoutSetAsync()
 		{
-			var result = await SendCommandAsync(RPCOperations.scantxoutset, "status");
+			var result = await SendCommandAsync(RPCOperations.scantxoutset, "status", new object[0]).ConfigureAwait(false);
 			result.ThrowIfError();
 			return (result.Result as JObject)?.Property("progress")?.Value?.Value<decimal>();
 		}
@@ -688,7 +761,7 @@ namespace NBitcoin.RPC
 		/// <returns>Returns true when abort was successful</returns>
 		public async Task<bool> AbortScanTxoutSetAsync()
 		{
-			var result = await SendCommandAsync(RPCOperations.scantxoutset, "abort");
+			var result = await SendCommandAsync(RPCOperations.scantxoutset, "abort", new object[0]);
 			result.ThrowIfError();
 			return ((JValue)result.Result).Value<bool>();
 		}
@@ -719,20 +792,7 @@ namespace NBitcoin.RPC
 			}
 			if (requests.Count == 0)
 				return;
-
-			try
-			{
-				await SendBatchAsyncCore(requests).ConfigureAwait(false);
-			}
-			catch (WebException ex)
-			{
-				if (!IsUnauthorized(ex))
-					throw;
-				if (GetCookiePath() == null)
-					throw;
-				TryRenewCookie(ex);
-				await SendBatchAsyncCore(requests).ConfigureAwait(false);
-			}
+			await SendBatchAsyncCore(requests).ConfigureAwait(false);
 		}
 		private async Task SendBatchAsyncCore(List<Tuple<RPCRequest, TaskCompletionSource<RPCResponse>>> requests)
 		{
@@ -751,71 +811,48 @@ namespace NBitcoin.RPC
 			writer.Write("]");
 			writer.Flush();
 
-			var json = writer.ToString();
-			var bytes = Encoding.UTF8.GetBytes(json);
-
-			var webRequest = CreateWebRequest();
-#if !NETSTANDARD1X
-			webRequest.ContentLength = bytes.Length;
-#endif
-
 			int responseIndex = 0;
-			var dataStream = await webRequest.GetRequestStreamAsync().ConfigureAwait(false);
-			await dataStream.WriteAsync(bytes, 0, bytes.Length).ConfigureAwait(false);
-			await dataStream.FlushAsync().ConfigureAwait(false);
-			dataStream.Dispose();
 			JArray response;
-			WebResponse webResponse = null;
-			WebResponse errorResponse = null;
 			try
 			{
-				webResponse = await webRequest.GetResponseAsync().ConfigureAwait(false);
-				response = JArray.Load(new JsonTextReader(
-						new StreamReader(
-								await ToMemoryStreamAsync(webResponse.GetResponseStream()).ConfigureAwait(false), Encoding.UTF8)));
-				foreach (var jobj in response.OfType<JObject>())
+			retry:
+				var webRequest = CreateWebRequest(writer.ToString());
+				using (var cts = new CancellationTokenSource(RequestTimeout))
 				{
-					try
+					using (var httpResponse = await HttpClient.SendAsync(webRequest, cts.Token).ConfigureAwait(false))
 					{
-						RPCResponse rpcResponse = new RPCResponse(jobj);
-						requests[responseIndex].Item2.TrySetResult(rpcResponse);
-					}
-					catch (Exception ex)
-					{
-						requests[responseIndex].Item2.TrySetException(ex);
-					}
-					responseIndex++;
-				}
-			}
-			catch (WebException ex)
-			{
-				if (IsUnauthorized(ex))
-					throw;
-				if (ex.Response == null || ex.Response.ContentLength == 0
-					|| !ex.Response.ContentType.Equals("application/json", StringComparison.Ordinal))
-				{
-					foreach (var item in requests)
-					{
-						item.Item2.TrySetException(ex);
-					}
-				}
-				else
-				{
-					errorResponse = ex.Response;
-					try
-					{
-
-						RPCResponse rpcResponse = RPCResponse.Load(await ToMemoryStreamAsync(errorResponse.GetResponseStream()).ConfigureAwait(false));
-						foreach (var item in requests)
+						if (httpResponse.IsSuccessStatusCode)
 						{
-							item.Item2.TrySetResult(rpcResponse);
+							response = JArray.Load(new JsonTextReader(
+							new StreamReader(await httpResponse.Content.ReadAsStreamAsync().ConfigureAwait(false), NoBOMUTF8)));
+							foreach (var jobj in response.OfType<JObject>())
+							{
+								try
+								{
+									RPCResponse rpcResponse = new RPCResponse(jobj);
+									requests[responseIndex].Item2.TrySetResult(rpcResponse);
+								}
+								catch (Exception ex)
+								{
+									requests[responseIndex].Item2.TrySetException(ex);
+								}
+								responseIndex++;
+							}
 						}
-					}
-					catch (Exception)
-					{
-						foreach (var item in requests)
+						else
 						{
-							item.Item2.TrySetException(ex);
+							if (httpResponse.StatusCode == HttpStatusCode.Unauthorized)
+							{
+								if (TryRenewCookie())
+									goto retry;
+								httpResponse.EnsureSuccessStatusCode(); // Let's throw
+							}
+							if (httpResponse.Content == null ||
+								(httpResponse.Content.Headers.ContentLength == null || httpResponse.Content.Headers.ContentLength.Value == 0) ||
+								!httpResponse.Content.Headers.ContentType.MediaType.Equals("application/json", StringComparison.Ordinal))
+							{
+								httpResponse.EnsureSuccessStatusCode(); // Let's throw
+							}
 						}
 					}
 				}
@@ -827,129 +864,128 @@ namespace NBitcoin.RPC
 					item.Item2.TrySetException(ex);
 				}
 			}
-			finally
-			{
-				if (errorResponse != null)
-				{
-					errorResponse.Dispose();
-					errorResponse = null;
-				}
-				if (webResponse != null)
-				{
-					webResponse.Dispose();
-					webResponse = null;
-				}
-			}
+			// Because TaskCompletionSources are executing on the threadpool adding a delay make sure they are all treated
+			// when the function returns. Not quite useful, but make that when SendBatch, all tasks are finished running
+			await Task.Delay(1);
 		}
 
-		private static bool IsUnauthorized(WebException ex)
-		{
-			var httpResp = ex.Response as HttpWebResponse;
-			var isUnauthorized = httpResp != null && httpResp.StatusCode == HttpStatusCode.Unauthorized;
-			return isUnauthorized;
-		}
 
 		public async Task<RPCResponse> SendCommandAsync(RPCRequest request, bool throwIfRPCError = true)
 		{
-			try
-			{
-				return await SendCommandAsyncCore(request, throwIfRPCError).ConfigureAwait(false);
-			}
-			catch (WebException ex)
-			{
-				if (!IsUnauthorized(ex))
-					throw;
-				if (GetCookiePath() == null)
-					throw;
-				TryRenewCookie(ex);
-				return await SendCommandAsyncCore(request, throwIfRPCError).ConfigureAwait(false);
-			}
+			return await SendCommandAsyncCore(request, throwIfRPCError).ConfigureAwait(false);
 		}
-		private void TryRenewCookie(WebException ex)
+		private bool TryRenewCookie()
 		{
-			if (GetCookiePath() == null)
-				throw new InvalidOperationException("Bug in NBitcoin notify the developers");
+			var cookiePath = GetCookiePath();
+			if (cookiePath == null)
+				return false;
 
 #if !NOFILEIO
 			try
 			{
-				_Authentication = File.ReadAllText(GetCookiePath());
+				var newCookie = File.ReadAllText(cookiePath);
+				if (_Authentication == newCookie)
+					return false;
+				_Authentication = newCookie;
+				return true;
 			}
 			//We are only interested into the previous exception
 			catch
 			{
-				if (ex == null)
-					return;
-				ExceptionDispatchInfo.Capture(ex).Throw();
+				return false;
 			}
 #else
 			throw new NotSupportedException("Cookie authentication is not supported for this platform");
 #endif
 		}
 
+		static Encoding NoBOMUTF8 = new UTF8Encoding(false);
 		async Task<RPCResponse> SendCommandAsyncCore(RPCRequest request, bool throwIfRPCError)
 		{
 			RPCResponse response = null;
 			var batches = _BatchedRequests;
 			if (batches != null)
 			{
+#if NO_RCA
 				TaskCompletionSource<RPCResponse> source = new TaskCompletionSource<RPCResponse>();
+#else
+				TaskCompletionSource<RPCResponse> source = new TaskCompletionSource<RPCResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+#endif
 				batches.Enqueue(Tuple.Create(request, source));
 				response = await source.Task.ConfigureAwait(false);
+				if (throwIfRPCError)
+					response?.ThrowIfError();
 			}
-			HttpWebRequest webRequest = response == null ? CreateWebRequest() : null;
+
 			if (response == null)
 			{
 				var writer = new StringWriter();
 				request.WriteJSON(writer);
 				writer.Flush();
-				var json = writer.ToString();
-				var bytes = Encoding.UTF8.GetBytes(json);
-#if !NETSTANDARD1X
-				webRequest.ContentLength = bytes.Length;
-#endif
-				var dataStream = await webRequest.GetRequestStreamAsync().ConfigureAwait(false);
-				await dataStream.WriteAsync(bytes, 0, bytes.Length).ConfigureAwait(false);
-				await dataStream.FlushAsync().ConfigureAwait(false);
-				dataStream.Dispose();
-			}
-			WebResponse webResponse = null;
-			WebResponse errorResponse = null;
-			try
-			{
-				webResponse = response == null ? await webRequest.GetResponseAsync().ConfigureAwait(false) : null;
-				response = response ?? RPCResponse.Load(await ToMemoryStreamAsync(webResponse.GetResponseStream()).ConfigureAwait(false));
-
-				if (throwIfRPCError)
-					response.ThrowIfError();
-			}
-			catch (WebException ex)
-			{
-				if (ex.Response == null || ex.Response.ContentLength == 0 ||
-					!ex.Response.ContentType.Equals("application/json", StringComparison.Ordinal))
-					throw;
-				errorResponse = ex.Response;
-				response = RPCResponse.Load(await ToMemoryStreamAsync(errorResponse.GetResponseStream()).ConfigureAwait(false));
-				if (throwIfRPCError)
-					response.ThrowIfError();
-			}
-			finally
-			{
-				if (errorResponse != null)
+				bool renewedCookie = false;
+				TimeSpan retryTimeout = TimeSpan.FromSeconds(1.0);
+				TimeSpan maxRetryTimeout = TimeSpan.FromSeconds(10.0);
+			retry:
+				var webRequest = CreateWebRequest(writer.ToString());
+				using (var cts = new CancellationTokenSource(RequestTimeout))
 				{
-					errorResponse.Dispose();
-					errorResponse = null;
-				}
-				if (webResponse != null)
-				{
-					webResponse.Dispose();
-					webResponse = null;
+					using (var httpResponse = await HttpClient.SendAsync(webRequest, cts.Token).ConfigureAwait(false))
+					{
+						if (httpResponse.IsSuccessStatusCode)
+						{
+							response = RPCResponse.Load(await httpResponse.Content.ReadAsStreamAsync());
+							if (throwIfRPCError)
+								response.ThrowIfError();
+						}
+						else
+						{
+							if (httpResponse.StatusCode == HttpStatusCode.Unauthorized)
+							{
+								if (!renewedCookie && TryRenewCookie())
+								{
+									renewedCookie = true;
+									goto retry;
+								}
+								httpResponse.EnsureSuccessStatusCode(); // Let's throw
+							}
+							if (IsJson(httpResponse))
+							{
+								response = RPCResponse.Load(await httpResponse.Content.ReadAsStreamAsync());
+								if (throwIfRPCError)
+									response.ThrowIfError();
+							}
+							else if (await IsWorkQueueFull(httpResponse))
+							{
+								await Task.Delay(retryTimeout, cts.Token);
+								retryTimeout = TimeSpan.FromTicks(retryTimeout.Ticks * 2);
+								if (retryTimeout > maxRetryTimeout)
+									retryTimeout = maxRetryTimeout;
+								goto retry;
+							}
+							else
+							{
+								httpResponse.EnsureSuccessStatusCode(); // Let's throw
+							}
+						}
+					}
 				}
 			}
 			return response;
 		}
 
-		private HttpWebRequest CreateWebRequest()
+		private bool IsJson(HttpResponseMessage httpResponse)
+		{
+			return httpResponse.Content?.Headers?.ContentType?.MediaType?.Equals("application/json", StringComparison.Ordinal) is true;
+		}
+
+		private async Task<bool> IsWorkQueueFull(HttpResponseMessage httpResponse)
+		{
+			if (httpResponse.StatusCode != HttpStatusCode.InternalServerError)
+				return false;
+			return (await httpResponse.Content?.ReadAsStringAsync())?.Equals("Work queue depth exceeded", StringComparison.Ordinal) is true;
+		}
+
+		private HttpRequestMessage CreateWebRequest(string json)
 		{
 			var address = Address.AbsoluteUri;
 			if (!string.IsNullOrEmpty(CredentialString.WalletName))
@@ -958,19 +994,14 @@ namespace NBitcoin.RPC
 					address = address + "/";
 				address += "wallet/" + CredentialString.WalletName;
 			}
-			var webRequest = (HttpWebRequest)WebRequest.Create(address);
-			webRequest.Headers[HttpRequestHeader.Authorization] = "Basic " + Encoders.Base64.EncodeData(Encoders.ASCII.DecodeData(_Authentication));
-			webRequest.ContentType = "application/json-rpc";
-			webRequest.Method = "POST";
-#if !NETSTANDARD1X
-			webRequest.KeepAlive = false;
-			webRequest.Timeout = (int)RequestTimeout.TotalMilliseconds;
-#endif
+			var webRequest = new HttpRequestMessage(HttpMethod.Post, address);
+			webRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Encoders.Base64.EncodeData(Encoders.ASCII.DecodeData(_Authentication)));
+			webRequest.Content = new StringContent(json, NoBOMUTF8, "application/json-rpc");
 			return webRequest;
 		}
-#if !NETSTANDARD1X
+
 		public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(100);
-#endif
+
 		private async Task<Stream> ToMemoryStreamAsync(Stream stream)
 		{
 			MemoryStream ms = new MemoryStream();
@@ -979,7 +1010,7 @@ namespace NBitcoin.RPC
 			return ms;
 		}
 
-#region P2P Networking
+		#region P2P Networking
 #if !NOSOCKET
 		public PeerInfo[] GetPeersInfo()
 		{
@@ -1093,11 +1124,11 @@ namespace NBitcoin.RPC
 			var obj = result.Result;
 			return obj.Select(entry => new AddedNodeInfo
 			{
-				AddedNode = Utils.ParseIpEndpoint((string)entry["addednode"], 8333),
+				AddedNode = Utils.ParseEndpoint((string)entry["addednode"], 8333),
 				Connected = (bool)entry["connected"],
 				Addresses = entry["addresses"].Select(x => new NodeAddressInfo
 				{
-					Address = Utils.ParseIpEndpoint((string)x["address"], 8333),
+					Address = Utils.ParseEndpoint((string)x["address"], 8333) as IPEndPoint,
 					Connected = (bool)x["connected"]
 				})
 			}).ToArray();
@@ -1131,11 +1162,11 @@ namespace NBitcoin.RPC
 				var e = result.Result;
 				return e.Select(entry => new AddedNodeInfo
 				{
-					AddedNode = Utils.ParseIpEndpoint((string)entry["addednode"], 8333),
+					AddedNode = Utils.ParseEndpoint((string)entry["addednode"], 8333),
 					Connected = (bool)entry["connected"],
 					Addresses = entry["addresses"].Select(x => new NodeAddressInfo
 					{
-						Address = Utils.ParseIpEndpoint((string)x["address"], 8333),
+						Address = Utils.ParseEndpoint((string)x["address"], 8333) as IPEndPoint,
 						Connected = (bool)x["connected"]
 					})
 				}).FirstOrDefault();
@@ -1149,9 +1180,9 @@ namespace NBitcoin.RPC
 		}
 #endif
 
-#endregion
+		#endregion
 
-#region Block chain and UTXO
+		#region Block chain and UTXO
 
 		public async Task<BlockchainInfo> GetBlockchainInfoAsync()
 		{
@@ -1170,6 +1201,51 @@ namespace NBitcoin.RPC
 				}
 			});
 
+			JToken softForksToken = result["softforks"];
+			List<SoftFork> softForks;
+			List<Bip9SoftFork> bip9SoftForks;
+			try
+			{
+				softForks = softForksToken
+					?.Cast<JProperty>()
+					?.Select(x =>
+						new SoftFork
+						{
+							Bip = x.Name,
+							ForkType = x.Value.Value<string>("type"),
+							Activated = x.Value.Value<bool>("activated"),
+							Height = x.Value.Value<uint>("height")
+						})
+					?.ToList();
+
+				bip9SoftForks = Enumerable.Empty<Bip9SoftFork>().ToList();
+			}
+			catch (InvalidCastException)
+			{
+				// Then the client may be pre Biitcoin Core 19, so Ensure backwards compatibility.
+				softForks = softForksToken
+					?.Cast<JObject>()
+					?.Select(x =>
+						new SoftFork
+						{
+							Bip = x.Value<string>("id")
+						})
+					?.ToList();
+
+				bip9SoftForks = result["bip9_softforks"]
+					?.Cast<JProperty>()
+					?.Select(x =>
+						new Bip9SoftFork
+						{
+							Name = x.Name,
+							Status = x.Value.Value<string>("status"),
+							StartTime = epochToDtateTimeOffset(x.Value.Value<long>("startTime")),
+							Timeout = epochToDtateTimeOffset(x.Value.Value<long>("timeout")),
+							SinceHeight = x.Value.Value<ulong?>("since") ?? 0
+						})
+					?.ToList();
+			}
+
 			var blockchainInfo = new BlockchainInfo
 			{
 				Chain = Network.GetNetwork(result.Value<string>("chain")),
@@ -1179,32 +1255,20 @@ namespace NBitcoin.RPC
 				Difficulty = result.Value<ulong>("difficulty"),
 				MedianTime = result.Value<ulong>("mediantime"),
 				VerificationProgress = result.Value<float>("verificationprogress"),
-				InitialBlockDownload = result.Value<bool>("initialblockdownload"),
+				InitialBlockDownload = result.Value<bool?>("initialblockdownload") ?? false,
 				ChainWork = new uint256(result.Value<string>("chainwork")),
-				SizeOnDisk = result.Value<ulong>("size_on_disk"),
+				SizeOnDisk = result.Value<ulong?>("size_on_disk") ?? 0,
 				Pruned = result.Value<bool>("pruned"),
-				SoftForks = result["softforks"]?.Select(x =>
-					new BlockchainInfo.SoftFork
-					{
-						Bip = (string)(x["id"]),
-						Version = (int)(x["version"]),
-						RejectStatus = bool.Parse((string)(x["reject"]["status"]))
-					}).ToList(),
-				Bip9SoftForks = result["bip9_softforks"]?.Select(x =>
-				{
-					var o = x.First();
-					return new BlockchainInfo.Bip9SoftFork
-					{
-						Name = ((JProperty)x).Name,
-						Status = (string)o["status"],
-						StartTime = epochToDtateTimeOffset((long)o["startTime"]),
-						Timeout = epochToDtateTimeOffset((long)o["timeout"]),
-						SinceHeight = (ulong)o["since"],
-					};
-				}).ToList()
+				SoftForks = softForks,
+				Bip9SoftForks = bip9SoftForks
 			};
 
 			return blockchainInfo;
+		}
+
+		public BlockchainInfo GetBlockchainInfo()
+		{
+			return GetBlockchainInfoAsync().Result;
 		}
 
 		public uint256 GetBestBlockHash()
@@ -1223,7 +1287,19 @@ namespace NBitcoin.RPC
 			return GetBlockHeader(hash);
 		}
 
+		public BlockHeader GetBlockHeader(uint height)
+		{
+			var hash = GetBlockHash(height);
+			return GetBlockHeader(hash);
+		}
+
 		public async Task<BlockHeader> GetBlockHeaderAsync(int height)
+		{
+			var hash = await GetBlockHashAsync(height).ConfigureAwait(false);
+			return await GetBlockHeaderAsync(hash).ConfigureAwait(false);
+		}
+
+		public async Task<BlockHeader> GetBlockHeaderAsync(uint height)
 		{
 			var hash = await GetBlockHashAsync(height).ConfigureAwait(false);
 			return await GetBlockHeaderAsync(hash).ConfigureAwait(false);
@@ -1255,7 +1331,18 @@ namespace NBitcoin.RPC
 			return GetBlockAsync(height).GetAwaiter().GetResult();
 		}
 
+		public Block GetBlock(uint height)
+		{
+			return GetBlockAsync(height).GetAwaiter().GetResult();
+		}
+
 		public async Task<Block> GetBlockAsync(int height)
+		{
+			var hash = await GetBlockHashAsync(height).ConfigureAwait(false);
+			return await GetBlockAsync(hash).ConfigureAwait(false);
+		}
+
+		public async Task<Block> GetBlockAsync(uint height)
 		{
 			var hash = await GetBlockHashAsync(height).ConfigureAwait(false);
 			return await GetBlockAsync(hash).ConfigureAwait(false);
@@ -1287,10 +1374,50 @@ namespace NBitcoin.RPC
 			return uint256.Parse(resp.Result.ToString());
 		}
 
+		public uint256 GetBlockHash(uint height)
+		{
+			var resp = SendCommand(RPCOperations.getblockhash, height);
+			return uint256.Parse(resp.Result.ToString());
+		}
+
 		public async Task<uint256> GetBlockHashAsync(int height)
 		{
 			var resp = await SendCommandAsync(RPCOperations.getblockhash, height).ConfigureAwait(false);
 			return uint256.Parse(resp.Result.ToString());
+		}
+
+		public async Task<uint256> GetBlockHashAsync(uint height)
+		{
+			var resp = await SendCommandAsync(RPCOperations.getblockhash, height).ConfigureAwait(false);
+			return uint256.Parse(resp.Result.ToString());
+		}
+
+		/// <summary>
+		/// Retrieve a BIP 157 content filter for a particular block.
+		/// </summary>
+		/// <param name="blockHash">The hash of the block.</param>
+		public BlockFilter GetBlockFilter(uint256 blockHash)
+		{
+			return GetBlockFilterAsync(blockHash).GetAwaiter().GetResult();
+		}
+
+		/// <summary>
+		/// Retrieve a BIP 157 content filter for a particular block.
+		/// </summary>
+		/// <param name="blockHash">The hash of the block.</param>
+		public async Task<BlockFilter> GetBlockFilterAsync(uint256 blockHash)
+		{
+			var resp = await SendCommandAsync(RPCOperations.getblockfilter, blockHash, "basic").ConfigureAwait(false);
+			return ParseCompactFilter(resp);
+		}
+
+		private BlockFilter ParseCompactFilter(RPCResponse resp)
+		{
+			var json = (JObject)resp.Result;
+			return new BlockFilter(
+				GolombRiceFilter.Parse(json.Value<string>("filter")),
+				uint256.Parse(json.Value<string>("header"))
+			);
 		}
 
 		public int GetBlockCount()
@@ -1350,52 +1477,99 @@ namespace NBitcoin.RPC
 			if (response.Error != null && response.Error.Code == RPCErrorCode.RPC_INVALID_ADDRESS_OR_KEY)
 				return null;
 
+			var jobj = (JObject)response.Result;
 			return new MempoolEntry
 			{
 				TransactionId = txid,
-				VirtualSizeBytes = response.Result["size"].Value<int>(),
-				Time = Utils.UnixTimeToDateTime(response.Result["time"].Value<long>()),
-				Height = response.Result["height"].Value<int>(),
-				DescendantCount = response.Result["descendantcount"].Value<int>(),
-				DescendantVirtualSizeBytes  = response.Result["descendantsize"].Value<int>(),
-				AncestorCount   = response.Result["ancestorcount"].Value<int>(),
-				AncestorVirtualSizeBytes = response.Result["ancestorsize"].Value<int>(),
-				TransactionIdWithWitness = uint256.Parse((string)response.Result["wtxid"]),
-				BaseFee = new Money(response.Result["fees"]["base"].Value<decimal>(), MoneyUnit.BTC),
-				ModifiedFee   = new Money(response.Result["fees"]["modified"].Value<decimal>(), MoneyUnit.BTC),
-				DescendantFees  = new Money(response.Result["fees"]["descendant"].Value<decimal>(), MoneyUnit.BTC),
-				AncestorFees    = new Money(response.Result["fees"]["ancestor"].Value<decimal>(), MoneyUnit.BTC),
-				Depends = response.Result["depends"]?.Select(x => uint256.Parse((string)x)).ToArray(),
-				SpentBy = response.Result["spentby"]?.Select(x => uint256.Parse((string)x)).ToArray()
+				VirtualSizeBytes = (jobj["size"] ?? jobj["vsize"]).Value<int>(),
+				Time = Utils.UnixTimeToDateTime(jobj["time"].Value<long>()),
+				Height = jobj["height"].Value<int>(),
+				DescendantCount = jobj["descendantcount"].Value<int>(),
+				DescendantVirtualSizeBytes = jobj["descendantsize"].Value<int>(),
+				AncestorCount = jobj["ancestorcount"].Value<int>(),
+				AncestorVirtualSizeBytes = jobj["ancestorsize"].Value<int>(),
+				TransactionIdWithWitness = uint256.Parse((string)jobj["wtxid"]),
+				BaseFee = new Money(jobj["fees"]["base"].Value<decimal>(), MoneyUnit.BTC),
+				ModifiedFee = new Money(jobj["fees"]["modified"].Value<decimal>(), MoneyUnit.BTC),
+				DescendantFees = new Money(jobj["fees"]["descendant"].Value<decimal>(), MoneyUnit.BTC),
+				AncestorFees = new Money(jobj["fees"]["ancestor"].Value<decimal>(), MoneyUnit.BTC),
+				Depends = jobj["depends"]?.Select(x => uint256.Parse((string)x)).ToArray(),
+				SpentBy = jobj["spentby"]?.Select(x => uint256.Parse((string)x)).ToArray()
 			};
 		}
 
-		public MempoolAcceptResult TestMempoolAccept(Transaction transaction, bool allowHighFees=false)
+		private FeeRate AbsurdlyHighFee { get; } = new FeeRate(10_000L);
+
+		public MempoolAcceptResult TestMempoolAccept(Transaction transaction, bool allowHighFees = false)
 		{
 			return TestMempoolAcceptAsync(transaction, allowHighFees).GetAwaiter().GetResult();
 		}
 
-		public async Task<MempoolAcceptResult> TestMempoolAcceptAsync(Transaction transaction, bool allowHighFees=false)
+		public async Task<MempoolAcceptResult> TestMempoolAcceptAsync(Transaction transaction, bool allowHighFees = false)
 		{
-			var response = await SendCommandAsync("testmempoolaccept", new[]{ transaction.ToHex() }, allowHighFees).ConfigureAwait(false);
+			var maxFeeRate = allowHighFees ? AbsurdlyHighFee : null;
+			return await TestMempoolAcceptAsync(transaction, maxFeeRate).ConfigureAwait(false);
+		}
+
+		public MempoolAcceptResult TestMempoolAccept(Transaction transaction, FeeRate maxFeeRate)
+		{
+			return TestMempoolAcceptAsync(transaction, maxFeeRate).GetAwaiter().GetResult();
+		}
+		public MempoolAcceptResult TestMempoolAccept(Transaction transaction)
+		{
+			return TestMempoolAcceptAsync(transaction, null as FeeRate).GetAwaiter().GetResult();
+		}
+		public Task<MempoolAcceptResult> TestMempoolAcceptAsync(Transaction transaction)
+		{
+			return TestMempoolAcceptAsync(transaction, null as FeeRate);
+		}
+
+		public async Task<MempoolAcceptResult> TestMempoolAcceptAsync(Transaction transaction, FeeRate maxFeeRate = null)
+		{
+			RPCResponse response;
+			if (maxFeeRate is FeeRate feeRate)
+			{
+				try
+				{
+					var feeRateDecimal = feeRate.FeePerK.ToDecimal(MoneyUnit.Satoshi);
+					response = await SendCommandAsync(RPCOperations.testmempoolaccept, new[] { transaction.ToHex() }, feeRateDecimal).ConfigureAwait(false);
+				}
+				catch (RPCException ex) when (ex.Message == "Expected type bool, got number")
+				{
+					var allowHighFees = feeRate >= AbsurdlyHighFee ? true : false;
+					response = await SendCommandAsync(RPCOperations.testmempoolaccept, new[] { transaction.ToHex() }, allowHighFees).ConfigureAwait(false);
+				}
+			}
+			else
+			{
+				response = await SendCommandAsync(RPCOperations.testmempoolaccept, new[] { new[] { transaction.ToHex() } }).ConfigureAwait(false);
+			}
 
 			var first = response.Result[0];
 			var allowed = first["allowed"].Value<bool>();
 
-			var rejectedCode = 0;
+			RejectCode rejectedCode = RejectCode.INVALID;
 			var rejectedReason = string.Empty;
-			if(!allowed)
+			if (!allowed)
 			{
 				var rejected = first["reject-reason"].Value<string>();
-				var separatorIdx = rejected.IndexOf(":");
-				rejectedCode = int.Parse(rejected.Substring(0, separatorIdx)); 
-				rejectedReason = rejected.Substring(separatorIdx+2); 
+				var separatorIdx = rejected.IndexOf(':');
+				if (separatorIdx != -1)
+				{
+					rejectedCode = (RejectCode)int.Parse(rejected.Substring(0, separatorIdx));
+					rejectedReason = rejected.Substring(separatorIdx + 2);
+				}
+				else
+				{
+					rejectedReason = rejected;
+				}
 			}
-			return new MempoolAcceptResult{
-				TxId=         uint256.Parse(first["txid"].Value<string>()),
-				IsAllowed=    allowed,
-				RejectCode=   (RejectCode)rejectedCode,
-				RejectReason= rejectedReason
+			return new MempoolAcceptResult
+			{
+				TxId = uint256.Parse(first["txid"].Value<string>()),
+				IsAllowed = allowed,
+				RejectCode = rejectedCode,
+				RejectReason = rejectedReason
 			};
 		}
 
@@ -1441,6 +1615,33 @@ namespace NBitcoin.RPC
 		}
 
 		/// <summary>
+		/// Returns statistics about the unspent transaction output (UTXO) set
+		/// </summary>
+		/// <returns>Parsed object containing all info</returns>
+		public GetTxOutSetInfoResponse GetTxoutSetInfo()
+		{
+			return GetTxoutSetInfoAsync().GetAwaiter().GetResult();
+		}
+
+		public async Task<GetTxOutSetInfoResponse> GetTxoutSetInfoAsync()
+		{
+			var response = await SendCommandAsync(RPCOperations.gettxoutsetinfo).ConfigureAwait(false);
+
+			var result = response.Result;
+			return new GetTxOutSetInfoResponse
+			{
+				Height = result.Value<int>("height"),
+				Bestblock = uint256.Parse(result.Value<string>("bestblock")),
+				Transactions = result.Value<int>("transactions"),
+				Txouts = result.Value<long>("txouts"),
+				Bogosize = result.Value<long>("bogosize"),
+				HashSerialized2 = result.Value<string>("hash_serialized_2"),
+				DiskSize = result.Value<long>("disk_size"),
+				TotalAmount = Money.FromUnit(result.Value<decimal>("total_amount"), MoneyUnit.BTC)
+			};
+		}
+
+		/// <summary>
 		/// GetTransactions only returns on txn which are not entirely spent unless you run bitcoinq with txindex=1.
 		/// </summary>
 		/// <param name="blockHash"></param>
@@ -1469,13 +1670,13 @@ namespace NBitcoin.RPC
 			return GetTransactions(GetBlockHash(height));
 		}
 
-#endregion
+		#endregion
 
-#region Coin generation
+		#region Coin generation
 
-#endregion
+		#endregion
 
-#region Raw Transaction
+		#region Raw Transaction
 
 		public Transaction DecodeRawTransaction(string rawHex)
 		{
@@ -1484,7 +1685,6 @@ namespace NBitcoin.RPC
 
 		public Transaction DecodeRawTransaction(byte[] raw)
 		{
-
 			return DecodeRawTransaction(Encoders.Hex.EncodeData(raw));
 		}
 		public Task<Transaction> DecodeRawTransactionAsync(string rawHex)
@@ -1559,7 +1759,7 @@ namespace NBitcoin.RPC
 				Transaction = ParseTxHex(json.Value<string>("hex")),
 				TransactionId = uint256.Parse(json.Value<string>("txid")),
 				TransactionTime = json["time"] != null ? NBitcoin.Utils.UnixTimeToDateTime(json.Value<long>("time")) : (DateTimeOffset?)null,
-				Hash = uint256.Parse(json.Value<string>("hash")),
+				Hash = json["hash"] is JToken token ? uint256.Parse(token.Value<string>()) : null,
 				Size = json.Value<uint>("size"),
 				VirtualSize = json.Value<uint>("vsize"),
 				Version = json.Value<uint>("version"),
@@ -1713,10 +1913,10 @@ namespace NBitcoin.RPC
 				if (money.Satoshi < 0)
 					return null;
 				return new EstimateSmartFeeResponse() { FeeRate = new FeeRate(money), Blocks = confirmationTarget };
-			}			
+			}
 		}
 
-#endregion
+		#endregion
 
 		/// <summary>
 		/// Requires wallet support. Requires an unlocked wallet or an unencrypted wallet.
@@ -1832,7 +2032,7 @@ namespace NBitcoin.RPC
 			return SendCommand(RPCOperations.settxfee, new[] { feeRate.FeePerK.ToString() }).Result.ToString() == "true";
 		}
 
-#endregion
+		#endregion
 
 		public async Task<uint256[]> GenerateAsync(int nBlocks)
 		{
@@ -1846,11 +2046,18 @@ namespace NBitcoin.RPC
 			}
 			else
 			{
-				var result = (JArray)(await SendCommandAsync(RPCOperations.generate, nBlocks).ConfigureAwait(false)).Result;
-				return result.Select(r => new uint256(r.Value<string>())).ToArray();
+				try
+				{
+					var result = (JArray)(await SendCommandAsync(RPCOperations.generate, nBlocks).ConfigureAwait(false)).Result;
+					return result.Select(r => new uint256(r.Value<string>())).ToArray();
+				}
+				catch (RPCException rpc) when (rpc.RPCCode == RPCErrorCode.RPC_METHOD_DEPRECATED || rpc.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
+				{
+					var address = await GetNewAddressAsync();
+					return await GenerateToAddressAsync(nBlocks, address);
+				}
 			}
 		}
-
 		public uint256[] Generate(int nBlocks)
 		{
 			return GenerateAsync(nBlocks).GetAwaiter().GetResult();
@@ -1872,7 +2079,7 @@ namespace NBitcoin.RPC
 			return GenerateToAddressAsync(nBlocks, address).GetAwaiter().GetResult();
 		}
 
-#region Region Hidden Methods
+		#region Region Hidden Methods
 
 		/// <summary>
 		/// Permanently marks a block as invalid, as if it violated a consensus rule.
@@ -1912,7 +2119,7 @@ namespace NBitcoin.RPC
 			await SendCommandAsync(RPCOperations.abandontransaction, txId.ToString()).ConfigureAwait(false);
 		}
 
-#endregion
+		#endregion
 	}
 
 #if !NOSOCKET
@@ -2045,8 +2252,9 @@ namespace NBitcoin.RPC
 		public class SoftFork
 		{
 			public string Bip { get; set; }
-			public int Version { get; set; }
-			public bool RejectStatus { get; set; }
+			public string ForkType { get; set; }
+			public bool Activated { get; set; }
+			public uint Height { get; set; }
 		}
 
 		public class Bip9SoftFork
@@ -2179,6 +2387,16 @@ namespace NBitcoin.RPC
 		public string RejectReason { get; internal set; }
 	}
 
+	public class BlockFilter
+	{
+		public GolombRiceFilter Filter { get; }
+		public uint256 Header { get; }
 
+		public BlockFilter(GolombRiceFilter filter, uint256 header)
+		{
+			Filter = filter;
+			Header = header;
+		}
+	}
 }
 #endif

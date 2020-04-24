@@ -94,11 +94,11 @@ namespace NBitcoin.Tests
 				},
 			};
 
-			foreach(var test in tests)
+			foreach (var test in tests)
 			{
 				var address = BitcoinAddress.Create(test.Address, Network.Main);
 				var pkh = (address as IPubkeyHashUsable);
-				if(test.PrivateKey != null)
+				if (test.PrivateKey != null)
 				{
 					var secret = Network.Main.CreateBitcoinSecret(test.PrivateKey);
 					var signature = secret.PrivateKey.SignMessage(test.Message);
@@ -157,7 +157,7 @@ namespace NBitcoin.Tests
 				}
 			};
 
-			foreach(var test in tests)
+			foreach (var test in tests)
 			{
 				BitcoinSecret secret = Network.Main.CreateBitcoinSecret(test.PrivateKeyWIF);
 				Assert.Equal(test.PubKey, secret.PrivateKey.PubKey.ToHex());
@@ -165,7 +165,7 @@ namespace NBitcoin.Tests
 				var address = (BitcoinPubKeyAddress)Network.Main.CreateBitcoinAddress(test.Address);
 				Assert.Equal(new KeyId(test.Hash160), address.Hash);
 				Assert.Equal(new KeyId(test.Hash160), secret.PrivateKey.PubKey.Hash);
-				Assert.Equal(address.Hash, secret.PrivateKey.PubKey.GetAddress(Network.Main).Hash);
+				Assert.Equal(address, secret.PrivateKey.PubKey.GetAddress(ScriptPubKeyType.Legacy, Network.Main));
 
 				var compressedSec = secret.Copy(true);
 
@@ -217,10 +217,10 @@ namespace NBitcoin.Tests
 			Assert.True(addr2C.Hash == pubkey2C.Hash);
 
 
-			for(int n = 0; n < 16; n++)
+			for (int n = 0; n < 16; n++)
 			{
 				string strMsg = String.Format("Very secret message {0}: 11", n);
-				if(n == 10)
+				if (n == 10)
 				{
 					//Test one long message
 					strMsg = String.Join(",", Enumerable.Range(0, 2000).Select(i => i.ToString()).ToArray());
@@ -231,61 +231,52 @@ namespace NBitcoin.Tests
 
 				ECDSASignature sign1 = null, sign2 = null, sign1C = null, sign2C = null;
 				List<Task> tasks = new List<Task>();
-				tasks.Add(Task.Run(() => sign1 = key1.Sign(hashMsg)));
-				tasks.Add(Task.Run(() => sign2 = key2.Sign(hashMsg)));
-				tasks.Add(Task.Run(() => sign1C = key1C.Sign(hashMsg)));
-				tasks.Add(Task.Run(() => sign2C = key2C.Sign(hashMsg)));
-				Task.WaitAll(tasks.ToArray());
-				tasks.Clear();
+				sign1 = key1.Sign(hashMsg);
+				sign2 = key2.Sign(hashMsg);
+				sign1C = key1C.Sign(hashMsg);
+				sign2C = key2C.Sign(hashMsg);
 
-				tasks.Add(Task.Run(() => Assert.True(pubkey1.Verify(hashMsg, sign1))));
-				tasks.Add(Task.Run(() => Assert.True(pubkey2.Verify(hashMsg, sign2))));
-				tasks.Add(Task.Run(() => Assert.True(pubkey1C.Verify(hashMsg, sign1C))));
-				tasks.Add(Task.Run(() => Assert.True(pubkey2C.Verify(hashMsg, sign2C))));
-				Task.WaitAll(tasks.ToArray());
-				tasks.Clear();
+				for (int i = 0; i < 30; i++)
+				{
+					Assert.True(pubkey1.Verify(hashMsg, sign1));
+					Assert.True(pubkey2.Verify(hashMsg, sign2));
+					Assert.True(pubkey1C.Verify(hashMsg, sign1C));
+					Assert.True(pubkey2C.Verify(hashMsg, sign2C));
 
-				tasks.Add(Task.Run(() => Assert.True(pubkey1.Verify(hashMsg, sign1))));
-				tasks.Add(Task.Run(() => Assert.True(!pubkey1.Verify(hashMsg, sign2))));
-				tasks.Add(Task.Run(() => Assert.True(pubkey1.Verify(hashMsg, sign1C))));
-				tasks.Add(Task.Run(() => Assert.True(!pubkey1.Verify(hashMsg, sign2C))));
+					Assert.True(pubkey1.Verify(hashMsg, sign1));
+					Assert.True(!pubkey1.Verify(hashMsg, sign2));
+					Assert.True(pubkey1.Verify(hashMsg, sign1C));
+					Assert.True(!pubkey1.Verify(hashMsg, sign2C));
 
-				tasks.Add(Task.Run(() => Assert.True(!pubkey2.Verify(hashMsg, sign1))));
-				tasks.Add(Task.Run(() => Assert.True(pubkey2.Verify(hashMsg, sign2))));
-				tasks.Add(Task.Run(() => Assert.True(!pubkey2.Verify(hashMsg, sign1C))));
-				tasks.Add(Task.Run(() => Assert.True(pubkey2.Verify(hashMsg, sign2C))));
+					Assert.True(!pubkey2.Verify(hashMsg, sign1));
+					Assert.True(pubkey2.Verify(hashMsg, sign2));
+					Assert.True(!pubkey2.Verify(hashMsg, sign1C));
+					Assert.True(pubkey2.Verify(hashMsg, sign2C));
 
-				tasks.Add(Task.Run(() => Assert.True(pubkey1C.Verify(hashMsg, sign1))));
-				tasks.Add(Task.Run(() => Assert.True(!pubkey1C.Verify(hashMsg, sign2))));
-				tasks.Add(Task.Run(() => Assert.True(pubkey1C.Verify(hashMsg, sign1C))));
-				tasks.Add(Task.Run(() => Assert.True(!pubkey1C.Verify(hashMsg, sign2C))));
+					Assert.True(pubkey1C.Verify(hashMsg, sign1));
+					Assert.True(!pubkey1C.Verify(hashMsg, sign2));
+					Assert.True(pubkey1C.Verify(hashMsg, sign1C));
+					Assert.True(!pubkey1C.Verify(hashMsg, sign2C));
 
-				tasks.Add(Task.Run(() => Assert.True(!pubkey2C.Verify(hashMsg, sign1))));
-				tasks.Add(Task.Run(() => Assert.True(pubkey2C.Verify(hashMsg, sign2))));
-				tasks.Add(Task.Run(() => Assert.True(!pubkey2C.Verify(hashMsg, sign1C))));
-				tasks.Add(Task.Run(() => Assert.True(pubkey2C.Verify(hashMsg, sign2C))));
-
-				Task.WaitAll(tasks.ToArray());
-				tasks.Clear();
-
+					Assert.True(!pubkey2C.Verify(hashMsg, sign1));
+					Assert.True(pubkey2C.Verify(hashMsg, sign2));
+					Assert.True(!pubkey2C.Verify(hashMsg, sign1C));
+					Assert.True(pubkey2C.Verify(hashMsg, sign2C));
+				}
 				// compact signatures (with key recovery)
 
 				byte[] csign1 = null, csign2 = null, csign1C = null, csign2C = null;
 
-				tasks.Add(Task.Run(() => csign1 = key1.SignCompact(hashMsg)));
-				tasks.Add(Task.Run(() => csign2 = key2.SignCompact(hashMsg)));
-				tasks.Add(Task.Run(() => csign1C = key1C.SignCompact(hashMsg)));
-				tasks.Add(Task.Run(() => csign2C = key2C.SignCompact(hashMsg)));
-				Task.WaitAll(tasks.ToArray());
-				tasks.Clear();
+				csign1 = key1.SignCompact(hashMsg);
+				csign2 = key2.SignCompact(hashMsg);
+				csign1C = key1C.SignCompact(hashMsg);
+				csign2C = key2C.SignCompact(hashMsg);
 
 				PubKey rkey1 = null, rkey2 = null, rkey1C = null, rkey2C = null;
-				tasks.Add(Task.Run(() => rkey1 = PubKey.RecoverCompact(hashMsg, csign1)));
-				tasks.Add(Task.Run(() => rkey2 = PubKey.RecoverCompact(hashMsg, csign2)));
-				tasks.Add(Task.Run(() => rkey1C = PubKey.RecoverCompact(hashMsg, csign1C)));
-				tasks.Add(Task.Run(() => rkey2C = PubKey.RecoverCompact(hashMsg, csign2C)));
-				Task.WaitAll(tasks.ToArray());
-				tasks.Clear();
+				rkey1 = PubKey.RecoverCompact(hashMsg, csign1);
+				rkey2 = PubKey.RecoverCompact(hashMsg, csign2);
+				rkey1C = PubKey.RecoverCompact(hashMsg, csign1C);
+				rkey2C = PubKey.RecoverCompact(hashMsg, csign2C);
 
 				Assert.True(rkey1.ToHex() == pubkey1.ToHex());
 				Assert.True(rkey2.ToHex() == pubkey2.ToHex());

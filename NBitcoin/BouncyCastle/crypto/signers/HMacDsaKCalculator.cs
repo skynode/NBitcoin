@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if !HAS_SPAN
+using System;
 
 using NBitcoin.BouncyCastle.Crypto.Macs;
 using NBitcoin.BouncyCastle.Crypto.Parameters;
@@ -61,7 +62,7 @@ namespace NBitcoin.BouncyCastle.Crypto.Signers
 
 			BigInteger mInt = BitsToInt(message);
 
-			if(mInt.CompareTo(n) >= 0)
+			if (mInt.CompareTo(n) >= 0)
 			{
 				mInt = mInt.Subtract(n);
 			}
@@ -103,11 +104,11 @@ namespace NBitcoin.BouncyCastle.Crypto.Signers
 		{
 			byte[] t = new byte[((n.BitLength + 7) / 8)];
 
-			for(;;)
+			for (; ; )
 			{
 				int tOff = 0;
 
-				while(tOff < t.Length)
+				while (tOff < t.Length)
 				{
 					hMac.BlockUpdate(V, 0, V.Length);
 
@@ -120,7 +121,7 @@ namespace NBitcoin.BouncyCastle.Crypto.Signers
 
 				BigInteger k = BitsToInt(t);
 
-				if(k.SignValue > 0 && k.CompareTo(n) < 0)
+				if (k.SignValue > 0 && k.CompareTo(n) < 0)
 				{
 					return k;
 				}
@@ -142,7 +143,7 @@ namespace NBitcoin.BouncyCastle.Crypto.Signers
 		{
 			BigInteger v = new BigInteger(1, t);
 
-			if(t.Length * 8 > n.BitLength)
+			if (t.Length * 8 > n.BitLength)
 			{
 				v = v.ShiftRight(t.Length * 8 - n.BitLength);
 			}
@@ -151,3 +152,4 @@ namespace NBitcoin.BouncyCastle.Crypto.Signers
 		}
 	}
 }
+#endif

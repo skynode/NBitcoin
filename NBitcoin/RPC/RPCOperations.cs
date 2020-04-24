@@ -97,11 +97,13 @@ namespace NBitcoin.RPC
 		walletcreatefundedpsbt,
 
 		getblockcount,
+		getblockfilter,
 		getbestblockhash,
 		getdifficulty,
 		settxfee,
 		getmempoolinfo,
 		getrawmempool,
+		testmempoolaccept,
 		getblockhash,
 		getblock,
 		gettxoutsetinfo,
@@ -113,6 +115,8 @@ namespace NBitcoin.RPC
 		abandontransaction,
 		signrawtransactionwithkey,
 		scantxoutset,
-		getmempoolentry
+		getmempoolentry,
+		stop,
+		uptime
 	}
 }

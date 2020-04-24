@@ -24,7 +24,7 @@ namespace NBitcoin.Tests
 				var testcase = JsonConvert.DeserializeObject<TestCase[]>(File.ReadAllText("data/openasset-known-tx.json"))
 					.First(t => t.test == test);
 				NoSqlTransactionRepository repository = new NoSqlTransactionRepository();
-				foreach(var tx in testcase.txs)
+				foreach (var tx in testcase.txs)
 				{
 					var txObj = Transaction.Parse(tx, Network.Main);
 					repository.Put(txObj.GetHash(), txObj);
@@ -70,7 +70,7 @@ namespace NBitcoin.Tests
 			public AssetKey()
 			{
 				Key = new Key();
-				ScriptPubKey = Key.PubKey.GetAddress(Network.Main).ScriptPubKey;
+				ScriptPubKey = Key.PubKey.GetAddress(ScriptPubKeyType.Legacy, Network.Main).ScriptPubKey;
 				Id = ScriptPubKey.Hash.ToAssetId();
 			}
 			public Key Key
@@ -94,7 +94,7 @@ namespace NBitcoin.Tests
 		[Trait("UnitTest", "UnitTest")]
 		public void CanParseColoredAddress()
 		{
-			var address = new BitcoinPubKeyAddress("16UwLL9Risc3QfPqBUvKofHmBQ7wMtjvM");
+			var address = new BitcoinPubKeyAddress("16UwLL9Risc3QfPqBUvKofHmBQ7wMtjvM", Network.Main);
 			var colored = address.ToColoredAddress();
 			Assert.Equal("akB4NBW9UuCmHuepksob6yfZs6naHtRCPNy", colored.ToWif());
 			Assert.Equal(address.ScriptPubKey, colored.ScriptPubKey);
@@ -126,8 +126,8 @@ namespace NBitcoin.Tests
 			var a1 = new AssetKey();
 			var a2 = new AssetKey();
 			var h = new AssetKey();
-			var sender = new Key().PubKey.GetAddress(Network.Main);
-			var receiver = new Key().PubKey.GetAddress(Network.Main);
+			var sender = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, Network.Main);
+			var receiver = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, Network.Main);
 
 			colored.Marker = new ColorMarker(new ulong[] { 0, 10, 6, 0, 7, 3 });
 			colored.Inputs.Add(new ColoredEntry(0, new AssetMoney(a1.Id, 3UL)));
@@ -341,7 +341,7 @@ namespace NBitcoin.Tests
 			Assert.True(destroyed[0].Id == colored2.Inputs[0].Asset.Id);
 
 			//Verify that FetchColor update the repository
-			var persistent = new NoSqlColoredTransactionRepository(tester.Repository.Transactions, new InMemoryNoSqlRepository());
+			var persistent = new NoSqlColoredTransactionRepository(tester.Repository.Transactions, new InMemoryNoSqlRepository(Network.Main.Consensus.ConsensusFactory));
 			colored2 = ColoredTransaction.FetchColors(tester.TestedTxId, persistent);
 			Assert.NotNull(persistent.Get(tester.TestedTxId));
 
@@ -406,7 +406,7 @@ namespace NBitcoin.Tests
 				"6a056a104f41010003ac0200e58e260412345678", //valid push consume a marker
 			};
 
-			foreach(var script in invalidMarkers.Select(m => new Script(Encoders.Hex.DecodeData(m))))
+			foreach (var script in invalidMarkers.Select(m => new Script(Encoders.Hex.DecodeData(m))))
 			{
 				var marker = ColorMarker.TryParse(script);
 				Assert.Null(marker);
@@ -419,7 +419,7 @@ namespace NBitcoin.Tests
 				"6a576e104f41010003ac0200e58e2604123456786811", //Invalid push at the end
 			};
 
-			foreach(var script in validMarkers.Select(m => new Script(Encoders.Hex.DecodeData(m))))
+			foreach (var script in validMarkers.Select(m => new Script(Encoders.Hex.DecodeData(m))))
 			{
 				var marker = ColorMarker.TryParse(script);
 				Assert.NotNull(marker);
@@ -445,7 +445,7 @@ namespace NBitcoin.Tests
 			//The issuer first generates a private key: 18E14A7B6A307F426A94F8114701E7C8E774E7F9A47E2C2035DB29A206321725.
 			var key = new Key(TestUtils.ParseHex("18E14A7B6A307F426A94F8114701E7C8E774E7F9A47E2C2035DB29A206321725"));
 			//He calculates the corresponding address: 16UwLL9Risc3QfPqBUvKofHmBQ7wMtjvM.
-			var address = key.PubKey.Decompress().GetAddress(Network.Main);
+			var address = key.PubKey.Decompress().GetAddress(ScriptPubKeyType.Legacy, Network.Main);
 			Assert.Equal("16UwLL9Risc3QfPqBUvKofHmBQ7wMtjvM", address.ToString());
 
 			//Next, he builds the Pay-to-PubKey-Hash script associated to that address: OP_DUP OP_HASH160 010966776006953D5567439E5E39F86A0D273BEE OP_EQUALVERIFY OP_CHECKSIG

@@ -1,4 +1,6 @@
-﻿namespace NBitcoin.Tests
+using System;
+
+namespace NBitcoin.Tests
 {
 	public partial class NodeDownloadData
 	{
@@ -84,6 +86,88 @@
 				},
 				UseSectionInConfigFile = true
 			};
+
+			public NodeDownloadData v0_18_0 = new NodeDownloadData()
+			{
+				Version = "0.18.0",
+				Linux = new NodeOSDownloadData()
+				{
+					Archive = "bitcoin-{0}-x86_64-linux-gnu.tar.gz",
+					DownloadLink = "https://bitcoincore.org/bin/bitcoin-core-{0}/bitcoin-{0}-x86_64-linux-gnu.tar.gz",
+					Executable = "bitcoin-{0}/bin/bitcoind",
+					Hash = "5146ac5310133fbb01439666131588006543ab5364435b748ddfc95a8cb8d63f"
+				},
+				Mac = new NodeOSDownloadData()
+				{
+					Archive = "bitcoin-{0}-osx64.tar.gz",
+					DownloadLink = "https://bitcoincore.org/bin/bitcoin-core-{0}/bitcoin-{0}-osx64.tar.gz",
+					Executable = "bitcoin-{0}/bin/bitcoind",
+					Hash = "12ae4dfc7566d08116509a592bb3ab5036b50405cba75f7d52105cee98ba47b0"
+				},
+				Windows = new NodeOSDownloadData()
+				{
+					Executable = "bitcoin-{0}/bin/bitcoind.exe",
+					DownloadLink = "https://bitcoincore.org/bin/bitcoin-core-{0}/bitcoin-{0}-win64.zip",
+					Archive = "bitcoin-{0}-win64.zip",
+					Hash = "29f449e2d1986a924b512e043893f932170830a45981323d8943ba6410848153"
+				},
+				UseSectionInConfigFile = true
+			};
+
+			public NodeDownloadData v0_18_1 = new NodeDownloadData()
+			{
+				Version = "0.18.1",
+				Linux = new NodeOSDownloadData()
+				{
+					Archive = "bitcoin-{0}-x86_64-linux-gnu.tar.gz",
+					DownloadLink = "https://bitcoincore.org/bin/bitcoin-core-{0}/bitcoin-{0}-x86_64-linux-gnu.tar.gz",
+					Executable = "bitcoin-{0}/bin/bitcoind",
+					Hash = "600d1db5e751fa85903e935a01a74f5cc57e1e7473c15fd3e17ed21e202cfe5a"
+				},
+				Mac = new NodeOSDownloadData()
+				{
+					Archive = "bitcoin-{0}-osx64.tar.gz",
+					DownloadLink = "https://bitcoincore.org/bin/bitcoin-core-{0}/bitcoin-{0}-osx64.tar.gz",
+					Executable = "bitcoin-{0}/bin/bitcoind",
+					Hash = "b7bbcee7a7540f711b171d6981f939ca8482005fde22689bc016596d80548bb1"
+				},
+				Windows = new NodeOSDownloadData()
+				{
+					Executable = "bitcoin-{0}/bin/bitcoind.exe",
+					DownloadLink = "https://bitcoincore.org/bin/bitcoin-core-{0}/bitcoin-{0}-win64.zip",
+					Archive = "bitcoin-{0}-win64.zip",
+					Hash = "b0f94ab43c068bac9c10a59cb3f1b595817256a00b84f0b724f8504b44e1314f"
+				},
+				UseSectionInConfigFile = true
+			};
+
+			public NodeDownloadData v0_19_0_1 = new NodeDownloadData()
+			{
+				Version = "0.19.0.1",
+				Linux = new NodeOSDownloadData()
+				{
+					Archive = "bitcoin-{0}-x86_64-linux-gnu.tar.gz",
+					DownloadLink = "https://bitcoincore.org/bin/bitcoin-core-{0}/bitcoin-{0}-x86_64-linux-gnu.tar.gz",
+					Executable = "bitcoin-{0}/bin/bitcoind",
+					Hash = "732cc96ae2e5e25603edf76b8c8af976fe518dd925f7e674710c6c8ee5189204"
+				},
+				Mac = new NodeOSDownloadData()
+				{
+					Archive = "bitcoin-{0}-osx64.tar.gz",
+					DownloadLink = "https://bitcoincore.org/bin/bitcoin-core-{0}/bitcoin-{0}-osx64.tar.gz",
+					Executable = "bitcoin-{0}/bin/bitcoind",
+					Hash = "a64e4174e400f3a389abd76f4d6b1853788730013ab1dedc0e64b0a0025a0923"
+				},
+				Windows = new NodeOSDownloadData()
+				{
+					Executable = "bitcoin-{0}/bin/bitcoind.exe",
+					DownloadLink = "https://bitcoincore.org/bin/bitcoin-core-{0}/bitcoin-{0}-win64.zip",
+					Archive = "bitcoin-{0}-win64.zip",
+					Hash = "7706593de727d893e4b1e750dc296ea682ccee79acdd08bbc81eaacf3b3173cf"
+				},
+				UseSectionInConfigFile = true
+			};
+
 		}
 
 		public class LitecoinNodeDownloadData
@@ -164,6 +248,33 @@
 					Hash = "fe1a593ffb10fec817157903a49d8965c49594dda4021fb76cf7d341e5300e17"
 				}
 			};
+
+			public NodeDownloadData v0_17_1 = new NodeDownloadData()
+			{
+				Version = "0.17.1",
+				Windows = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://download.litecoin.org/litecoin-{0}/win/litecoin-{0}-win64.zip",
+					Archive = "litecoin-{0}-win64.zip",
+					Executable = "litecoin-{0}/bin/litecoind.exe",
+					Hash = "8060e9bface9bbdc22c74a2687b211c8b4e32fe03c0e6c537c12de0ff6f0813b"
+				},
+				Linux = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://download.litecoin.org/litecoin-{0}/linux/litecoin-{0}-x86_64-linux-gnu.tar.gz",
+					Archive = "litecoin-{0}-x86_64-linux-gnu.tar.gz",
+					Executable = "litecoin-{0}/bin/litecoind",
+					Hash = "9cab11ba75ea4fb64474d4fea5c5b6851f9a25fe9b1d4f7fc9c12b9f190fed07"
+				},
+				Mac = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://download.litecoin.org/litecoin-{0}/osx/litecoin-{0}-osx64.tar.gz",
+					Archive = "litecoin-{0}-osx64.tar.gz",
+					Executable = "litecoin-{0}/bin/litecoind",
+					Hash = "b93fa415c84bea1676d0b0ea819dd6e8e4f7b136167d89b18b63240b50757d4f"
+				},
+				UseSectionInConfigFile = true
+			};
 		}
 
 		public class ViacoinNodeDownloadData
@@ -222,6 +333,33 @@
 					Hash = "5a655ddd8eb6b869b902780efe4ec12de24bbede3f6bf2edc3922048928053e5"
 				},
 			};
+
+			public NodeDownloadData v0_19_8 = new NodeDownloadData()
+			{
+				Version = "0.19.8",
+				Windows = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://download.bitcoinabc.org/{0}/win/bitcoin-abc-{0}-win64.zip",
+					Archive = "bitcoin-abc-{0}-win64.zip",
+					Executable = "bitcoin-abc-{0}/bin/bitcoind.exe",
+					Hash = "2080955c7cc2af0a84efa4375ea44a581b0e86b8c7cea735edd9ed5e23866069"
+				},
+				Linux = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://download.bitcoinabc.org/{0}/linux/bitcoin-abc-{0}-x86_64-linux-gnu.tar.gz",
+					Archive = "bitcoin-abc-{0}-x86_64-linux-gnu.tar.gz",
+					Executable = "bitcoin-abc-{0}/bin/bitcoind",
+					Hash = "cc40101ffe44340dcc82c6de2bc92040368a857548da133d7f1eb7a45a4c63f5"
+				},
+				Mac = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://download.bitcoinabc.org/{0}/osx/bitcoin-abc-{0}-osx64.tar.gz",
+					Archive = "bitcoin-abc-{0}-osx64.tar.gz",
+					Executable = "bitcoin-abc-{0}/bin/bitcoind",
+					Hash = "7ecb69387fdea63ad87cda726b56da72fc2cf5d2af94393634b776bcda70a906"
+				},
+				UseSectionInConfigFile = true
+			};
 		}
 
 		public class FeathercoinNodeDownloadData
@@ -235,21 +373,21 @@
 					Archive = "feathercoin-{0}-win64.zip",
 					Executable = "feathercoin-{0}/bin/feathercoind.exe",
 					Hash = "5BA572C4283E8C4C0332A8072C82B4C8FD6CADD0D15E6400BA1C0C2991575155"
-                },
+				},
 				Linux = new NodeOSDownloadData()
 				{
 					DownloadLink = "http://downloads.feathercoin.com/feathercoin-0.16.0-x86_64-linux-gnu.tar.gz",
 					Archive = "feathercoin-{0}-x86_64-linux-gnu.tar.gz",
 					Executable = "feathercoin-{0}/bin/feathercoind",
 					Hash = "5673DA0CE1141D5417D6EE502DAD8741F36100CDF89B4F67A525475E9EB435DE"
-                },
+				},
 				Mac = new NodeOSDownloadData()
 				{
 					DownloadLink = "http://downloads.feathercoin.com/feathercoin-{0}-osx64.tar.gz",
 					Archive = "feathercoin-{0}-osx64.tar.gz",
 					Executable = "feathercoin-{0}/bin/feathercoind",
 					Hash = "E6ECE15424DDD83E3FAC64F9A0786AD40F8D89A24ECDC6285353435CD46EEBB1"
-                }
+				}
 			};
 		}
 
@@ -310,6 +448,93 @@
 					Hash = "6f97f502732e5b63a431d0edb5a9d14e95ff8afb8e7eb94463566a75e7589a70"
 				}
 			};
+
+			// Note that Dash have DISABLED mining in their offical Windows and Mac binaries as per
+			// https://github.com/dashpay/dash/pull/2778 and https://github.com/dashpay/dash/issues/2998.
+			// Without generate or generatetoaddress RPC calls the ability to run automated tests is very limited.
+			//public NodeDownloadData v0_14_0_1 = new NodeDownloadData()
+			//{
+			//	Version = "0.14.0.1",
+			//	Windows = new NodeOSDownloadData()
+			//	{
+			//		DownloadLink = "https://github.com/dashpay/dash/releases/download/v{0}/dashcore-{0}-win64.zip",
+			//		Archive = "dashcore-{0}-win64.zip",
+			//		Executable = "dashcore-0.14.0/bin/dashd.exe",
+			//		Hash = "8d9a0d25cafb166dd49b75b63e059d2896d0162b3e32168c5dddb40c8ac3853b"
+			//	},
+			//	Linux = new NodeOSDownloadData()
+			//	{
+			//		DownloadLink = "https://github.com/dashpay/dash/releases/download/v{0}/dashcore-{0}-x86_64-linux-gnu.tar.gz",
+			//		Archive = "dashcore-{0}-x86_64-linux-gnu.tar.gz",
+			//		Executable = "dashcore-0.14.0/bin/dashd",
+			//		Hash = "c28881104ef7b3bdede7eb2b231b076a6e69213948695b4ec79ccb5621c04d97"
+			//	},
+			//	Mac = new NodeOSDownloadData()
+			//	{
+			//		DownloadLink = "https://github.com/dashpay/dash/releases/download/v{0}/dashcore-{0}-osx-unsigned.dmg",
+			//		Archive = "dashcore-{0}-osx-unsigned.dmg",
+			//		Executable = "dashcore-0.14.0/bin/dashd",
+			//		Hash = "51faffb422fbd3c659ef4b34e7e708174389d8493f2368db4d6c909b52db9115"
+			//	}
+			//};
+		}
+
+		public class TerracoinNodeDownloadData
+		{
+			public NodeDownloadData v0_12_2 = new NodeDownloadData()
+			{
+				Version = "0.12.2.5",
+				Windows = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://terracoin.io/bin/terracoin-core-{0}/terracoin-0.12.2-win64.zip",
+					Archive = "terracoin-0.12.2-win64.zip",
+					Executable = "terracoin-0.12.2/bin/terracoind.exe",
+					Hash = "5d87ede8097557aa02380c6d0b1f15af7e9b3edb0ba31ff6809a33b41051bbef"
+				},
+				Linux = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://terracoin.io/bin/terracoin-core-{0}/terracoin-0.12.2-x86_64-linux-gnu.tar.gz",
+					Archive = "terracoin-0.12.2-x86_64-linux-gnu.tar.gz",
+					Executable = "terracoin-0.12.2/bin/terracoind",
+					Hash = "a983cb9ca990b77566017fbccfaf70b42cf8947a6f82f247bace19a332ce18e3"
+				},
+				Mac = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://terracoin.io/bin/terracoin-core-{0}/terracoin-0.12.2-osx64.tar.gz",
+					Archive = "terracoin-0.12.2-osx64.tar.gz",
+					Executable = "terracoin-0.12.2/bin/terracoind",
+					Hash = "51ae932f276be131c5b938e4d7dd710e8a0af3ea8a5ca46aaac8366eafc22c49"
+				}
+			};
+		}
+
+		public class VergeNodeDownloadData
+		{
+			public NodeDownloadData v6_0_2 = new NodeDownloadData()
+			{
+				Version = "6.0.2",
+				Windows = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/vergecurrency/verge/releases/download/v6.0.2/verge-6.0.2-win64.zip",
+					Archive = "verge-6.0.2-win64.zip",
+					Executable = "verge-6.0.2/bin/verged.exe",
+					Hash = "6334d5222309337271b47ccf6129a282144c81682c691d9624c35219769e5fb4"
+				},
+				Linux = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/vergecurrency/verge/releases/download/v6.0.2/verge-6.0.2-x86_64-linux-gnu.tar.gz",
+					Archive = "verge-6.0.2-x86_64-linux-gnu.tar.gz",
+					Executable = "verge-6.0.2/bin/verged",
+					Hash = "cdcb797d9bb11e9fe8062acd9ca46c5bafb02c4868f3c02fd417037584efd721"
+				},
+				Mac = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/vergecurrency/verge/releases/download/v6.0.2/verge-6.0.2-osx64.tar.gz",
+					Archive = "verge-6.0.2-osx64.tar.gz",
+					Executable = "verge-6.0.2/bin/verged",
+					Hash = "bb3ef22d6e589162c3ff8a3de72a6bd0a80ec0000aa2573960865d3d0f8703c2"
+				}
+			};
 		}
 
 		public class DystemNodeDownloadData
@@ -352,7 +577,7 @@
 					Archive = "mogwaicore-{0}-win64.zip",
 					Executable = "mogwaicore-0.12.2/bin/mogwaid.exe",
 					Hash = "af830999026809416cf5b93d840e6e90ce8af0dc61738bd9bf1c5f059439b0a6"
-                },
+				},
 				Linux = new NodeOSDownloadData()
 				{
 					DownloadLink = "https://github.com/mogwaicoin/mogwai/releases/download/v{0}/mogwaicore-{0}-linux64.tar.gz",
@@ -485,31 +710,31 @@
 			};
 		}
 
-        public class UfoNodeDownloadData
-        {
-            public NodeDownloadData v0_16_0 = new NodeDownloadData()
-            {
-                Version = "0.16.0",
-                Windows = new NodeOSDownloadData()
-                {
-                    DownloadLink = "https://downloads.ufobject.com/ufo-0.16.0.zip",
-                    Archive = "UFO-{0}-win64.zip",
-                    Executable = "UFO-{0}/bin/ufod.exe",
-                    Hash = "B06D8564CF2BF95EDD4AECEB3F725C12FB18A31398E59B48A242AED210261FAE"
-                },
-                Linux = new NodeOSDownloadData()
-                {
-                    DownloadLink = "https://downloads.ufobject.com/ufo-0.16.0-x86_64-linux-gnu.tar.gz",
-                    Archive = "UFO-{0}-linux64.tar.gz",
-                    Executable = "UFO-{0}/bin/ufod",
-                    Hash = "2A0F4ED78EA58C232CCEA6DDD4EB36F766C72663D1DF9B6FDA0CB39143FE0F60"
-                },
-                Mac = new NodeOSDownloadData()
-                {
-                    DownloadLink = "https://downloads.ufobject.com/ufo-0.16.0-osx64.tar.gz",
-                    Archive = "UFO-{0}-osx.dmg",
-                    Executable = "UFO-{0}/bin/ufod",
-                    Hash = "5CC7E5F742584BAD0CADD516B09C93566D38B42C352F21D521C84C9490088ACB"
+		public class UfoNodeDownloadData
+		{
+			public NodeDownloadData v0_16_0 = new NodeDownloadData()
+			{
+				Version = "0.16.0",
+				Windows = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://downloads.ufobject.com/ufo-0.16.0.zip",
+					Archive = "UFO-{0}-win64.zip",
+					Executable = "UFO-{0}/bin/ufod.exe",
+					Hash = "B06D8564CF2BF95EDD4AECEB3F725C12FB18A31398E59B48A242AED210261FAE"
+				},
+				Linux = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://downloads.ufobject.com/ufo-0.16.0-x86_64-linux-gnu.tar.gz",
+					Archive = "UFO-{0}-linux64.tar.gz",
+					Executable = "UFO-{0}/bin/ufod",
+					Hash = "2A0F4ED78EA58C232CCEA6DDD4EB36F766C72663D1DF9B6FDA0CB39143FE0F60"
+				},
+				Mac = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://downloads.ufobject.com/ufo-0.16.0-osx64.tar.gz",
+					Archive = "UFO-{0}-osx.dmg",
+					Executable = "UFO-{0}/bin/ufod",
+					Hash = "5CC7E5F742584BAD0CADD516B09C93566D38B42C352F21D521C84C9490088ACB"
 				}
 			};
 		}
@@ -573,6 +798,60 @@
 					CreateFolder = "GRS-{0}"
 				}
 			};
+
+			public NodeDownloadData v2_17_2 = new NodeDownloadData()
+			{
+				Version = "2.17.2",
+				Windows = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/Groestlcoin/groestlcoin/releases/download/v{0}/groestlcoin-{0}-x86_64-w64-mingw32.zip",
+					Archive = "groestlcoin-{0}-x86_64-w64-mingw32.zip",
+					Executable = "groestlcoin-{0}/bin/groestlcoind.exe",
+					Hash = "2378209ef954d50cd82ae70f04b4fc5e07d16e11f13c7183a6647f8d60de1f85"
+				},
+				Linux = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/Groestlcoin/groestlcoin/releases/download/v{0}/groestlcoin-{0}-x86_64-linux-gnu.tar.gz",
+					Archive = "groestlcoin-{0}-x86_64-linux-gnu.tar.gz",
+					Executable = "groestlcoin-{0}/bin/groestlcoind",
+					Hash = "e90f6ceb56fbc86ae17ee3c5d6d3913c422b7d98aa605226adb669acdf292e9e"
+				},
+				Mac = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/Groestlcoin/groestlcoin/releases/download/v{0}/groestlcoin-{0}-x86_64-apple-darwin11.tar.gz",
+					Archive = "groestlcoin-{0}-x86_64-apple-darwin11.tar.gz",
+					Executable = "groestlcoin-{0}/bin/groestlcoind",
+					Hash = "b3fe245752a445ce56cac265af7ed63906c7c1c8e2c932891369be72c290307d"
+				},
+				UseSectionInConfigFile = true
+			};
+
+			public NodeDownloadData v2_18_2 = new NodeDownloadData()
+			{
+				Version = "2.18.2",
+				Windows = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/Groestlcoin/groestlcoin/releases/download/v{0}/groestlcoin-{0}-win64.zip",
+					Archive = "groestlcoin-{0}-win64.zip",
+					Executable = "groestlcoin-{0}/bin/groestlcoind.exe",
+					Hash = "44ab9b896db1c8492facc1f6353ea6b59e72328a38859a419a08113520e9c0b8"
+				},
+				Linux = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/Groestlcoin/groestlcoin/releases/download/v{0}/groestlcoin-{0}-x86_64-linux-gnu.tar.gz",
+					Archive = "groestlcoin-{0}-x86_64-linux-gnu.tar.gz",
+					Executable = "groestlcoin-{0}/bin/groestlcoind",
+					Hash = "9ee26e1cd7967d0dc88670dbbdb99f95236ebc218f75977efb23f03ad8b74250"
+				},
+				Mac = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/Groestlcoin/groestlcoin/releases/download/v{0}/groestlcoin-{0}-osx64.tar.gz",
+					Archive = "groestlcoin-{0}-osx64.tar.gz",
+					Executable = "groestlcoin-{0}/bin/groestlcoind",
+					Hash = "fdb722b326433501b179a33ac20e88b5fd587a249878eb94a9981da2097c42a5"
+				},
+				UseSectionInConfigFile = true
+			};
 		}
 
 		public class ZclassicNodeDownloadData
@@ -619,6 +898,23 @@
 				RegtestFolderName = "elementsregtest",
 				AdditionalRegtestConfig = "initialfreecoins=210000000000000"
 			};
+
+			public NodeDownloadData v0_18_1_1 = new NodeDownloadData()
+			{
+				Version = "0.18.1.1",
+				Windows = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/ElementsProject/elements/releases/download/elements-{0}/elements-{0}-win64.zip",
+					Archive = "elements-{0}-win64.zip",
+					Executable = "elements-0.18.1.1/bin/elementsd.exe",
+					Hash = "f6ca18e3f4fe4fb4aadb70b7b447466afb68eec11d9cd5e2cac613414a28a1a5"
+				},
+				RegtestFolderName = "elementsregtest",
+				Chain = "elementsregtest",
+				AdditionalRegtestConfig = "initialfreecoins=210000000000000\nvalidatepegin=0\n\ncon_dyna_deploy_start=99999999999999999",
+				UseSectionInConfigFile = true,
+			};
+
 		}
 		public class LiquidNodeDownloadData
 		{
@@ -638,6 +934,34 @@
 					Archive = "liquid-{0}-x86_64-linux-gnu.tar.gz",
 					Executable = "liquid-{0}/bin/liquidd",
 					Hash = "ea2836aa267b32b29e890acdd5e724b4be225c34891fd26426ce741c12c1e166"
+				},
+				RegtestFolderName = "liquidregtest",
+				AdditionalRegtestConfig = "initialfreecoins=210000000000000\nvalidatepegin=0"
+			};
+
+			public NodeDownloadData v3_14_1_23 = new NodeDownloadData()
+			{
+				Version = "3.14.1.23",
+				Windows = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/Blockstream/liquid/releases/download/liquid.{0}/liquid-{0}-win64.zip",
+					Archive = "liquid-{0}-win64.zip",
+					Executable = "liquid-{0}/bin/liquidd.exe",
+					Hash = "8b18aebbbf8092b052db648e34adf52342a02923d758181cfb8bc0894c90dfb5"
+				},
+				Linux = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/Blockstream/liquid/releases/download/liquid.{0}/liquid-{0}-x86_64-linux-gnu.tar.gz",
+					Archive = "liquid-{0}-x86_64-linux-gnu.tar.gz",
+					Executable = "liquid-{0}/bin/liquidd",
+					Hash = "cb135d60407fd4fcd04d1f021cd314e9f8f50a8f0a660551f5ea251b0fea3ffc"
+				},
+				Mac = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/Blockstream/liquid/releases/download/liquid.{0}/liquid-{0}-osx64.tar.gz",
+					Archive = "liquid-{0}-x86_64-osx64.tar.gz",
+					Executable = "liquid-{0}/bin/liquidd",
+					Hash = "91f5859414d6bce99695c2de01317ec1454d3d99615f81f301b85f767b5e2cf2  "
 				},
 				RegtestFolderName = "liquidregtest",
 				AdditionalRegtestConfig = "initialfreecoins=210000000000000\nvalidatepegin=0"
@@ -749,7 +1073,7 @@
 				},
 				Linux = new NodeOSDownloadData()
 				{
-					DownloadLink = 
+					DownloadLink =
 						"https://github.com/gincoin-dev/gincoin-core/releases/download/{0}.0/gincoin-binaries-linux-64bit.tar.gz",
 					Archive = "gincoin-binaries-linux-64bit.tar.gz",
 					Executable = "gincoin-binaries/gincoind",
@@ -793,34 +1117,34 @@
 			};
 		}
 
-        public class BitcoinplusNodeDownloadData
-        {
-            public NodeDownloadData v2_7_0 = new NodeDownloadData()
-            {
-                Version = "2.7.0",
-                Windows = new NodeOSDownloadData()
-                {
-                    DownloadLink = "https://downloads.bitcoinplus.org/bitcoinplus-2.7.0.zip",
-                    Archive = "bitcoinplus-{0}-win64.zip",
-                    Executable = "bitcoinplus-{0}/bin/bitcoinplusd.exe",
-                    Hash = "3eb8fc8c57eba865c4818653f1745adbca7ee5c9065e622311907eb4d5c34273"
-                },
-                Linux = new NodeOSDownloadData()
-                {
-                    DownloadLink = "https://downloads.bitcoinplus.org/bitcoinplus-2.7.0-x86_64.tar.gz",
-                    Archive = "bitcoinplus-{0}-x86_64-linux-gnu.tar.gz",
-                    Executable = "bitcoinplus-{0}/bin/bitcoinplusd",
-                    Hash = "753547b23988124defbf9bee029b4902d6277ce467c63f2ad6588c53817b2251"
-                },
-                Mac = new NodeOSDownloadData()
-                {
-                    DownloadLink = "https://downloads.bitcoinplus.org/bitcoinplus-2.7.0-osx64.tar.gz",
-                    Archive = "Bitcoinplus-Core.dmg",
-                    Executable = "bitcoinplusd",
-                    Hash = "09d381ed0082fccd6e3af4792b975fee177cffc546fd449181a4c37b4907cff8"
-                }
-            };
-        }
+		public class BitcoinplusNodeDownloadData
+		{
+			public NodeDownloadData v2_7_0 = new NodeDownloadData()
+			{
+				Version = "2.7.0",
+				Windows = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://downloads.bitcoinplus.org/bitcoinplus-2.7.0.zip",
+					Archive = "bitcoinplus-{0}-win64.zip",
+					Executable = "bitcoinplus-{0}/bin/bitcoinplusd.exe",
+					Hash = "3eb8fc8c57eba865c4818653f1745adbca7ee5c9065e622311907eb4d5c34273"
+				},
+				Linux = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://downloads.bitcoinplus.org/bitcoinplus-2.7.0-x86_64.tar.gz",
+					Archive = "bitcoinplus-{0}-x86_64-linux-gnu.tar.gz",
+					Executable = "bitcoinplus-{0}/bin/bitcoinplusd",
+					Hash = "753547b23988124defbf9bee029b4902d6277ce467c63f2ad6588c53817b2251"
+				},
+				Mac = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://downloads.bitcoinplus.org/bitcoinplus-2.7.0-osx64.tar.gz",
+					Archive = "Bitcoinplus-Core.dmg",
+					Executable = "bitcoinplusd",
+					Hash = "09d381ed0082fccd6e3af4792b975fee177cffc546fd449181a4c37b4907cff8"
+				}
+			};
+		}
 
 		public class ChaincoinNodeDownloadData
 		{
@@ -840,6 +1164,99 @@
 					Archive = "chaincoin-{0}-x86_64-linux-gnu.tar.gz",
 					Executable = "chaincoin-0.16.4/bin/chaincoind",
 					Hash = "b841f9c2098e973217a32a6213fe2a5bfe2987dd7b5c851a38082ce191b65283"
+				}
+			};
+		}
+
+		public class ZCoinNodeDownloadData
+		{
+			public NodeDownloadData v0_13_8_3 = new NodeDownloadData()
+			{
+				Version = "0.13.8.3",
+				Windows = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/zcoinofficial/zcoin/releases/download/v{0}/zcoin-{0}-win64.zip",
+					Archive = "zcoin-{0}-win64.zip",
+					Executable = "zcoin-{0}/bin/zcoind.exe",
+					Hash = "f0cca1fca157c8549cdfdbd2587d2dfad9234a63df193f666d8a9d77df5a8eb3"
+				},
+				Linux = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/zcoinofficial/zcoin/releases/download/v{0}/zcoin-{0}-x86_64-linux-gnu.tar.gz",
+					Archive = "zcoin-{0}-x86_64-linux-gnu.tar.gz",
+					Executable = "zcoin-{0}/bin/zcoind",
+					Hash = "364ea09583b46866a7d84b924355e41cf5d8f2f1a54f8abb6c3f10b63d1933f1"
+				},
+				Mac = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/zcoinofficial/zcoin/releases/download/v{0}/zcoin-{0}-osx64.tar.gz",
+					Archive = "zcoin-{0}-osx64.tar.gz",
+					Executable = "zcoin-{0}/bin/zcoind",
+					Hash = "9d7ae6cdc6afdecfbf6425e4e652baeb7c6b440c90dc8e7ac1cb30a7f7e0574e"
+				}
+			};
+		}
+
+		/// <summary>
+		/// Using Stratis C# full node.
+		/// Should be updated to use official release once it is deployed.
+		/// </summary>
+		public class StratisNodeDownloadData
+		{
+			public NodeDownloadData v3_0_0 = new NodeDownloadData()
+			{
+				Version = "3.0",
+				Windows = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/mikedennis/StratisBitcoinFullNode/releases/download/{0}/stratis-{0}-win64.zip",
+					Archive = "stratis-{0}-win64.zip",
+					Executable = "stratis-{0}-win64/Stratis.StratisD.exe",
+					Hash = "7B0ABEA75B032D8FAF3BEE071A892E2864A31A8ECC42F7AA4300CC51B1CA1D5A"
+				},
+				Linux = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/mikedennis/StratisBitcoinFullNode/releases/download/{0}/stratis-{0}-linux64.tgz",
+					Archive = "stratis-{0}-linux64.tgz",
+					Executable = "stratis-{0}-linux64/Stratis.StratisD",
+					Hash = "57965AA4034468ED4C9FDD6CDBAD8A1F722DDE6A6BCAE6291D79BF76C5FC644B"
+				},
+				Mac = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/mikedennis/StratisBitcoinFullNode/releases/download/{0}/stratis-{0}-osx64.tgz",
+					Archive = "stratis-{0}-osx64.tgz",
+					Executable = "stratis-{0}-osx64/Stratis.StratisD",
+					Hash = "04C4F4EBCA494ABD6C29D834D86AFEA559BB8893A1E74BE849D050FEFC164C72"
+				},
+				SupportCookieFile = false,
+				AdditionalRegtestConfig = "defaultwalletname=default" + Environment.NewLine + "maxtipage=2147483647" + Environment.NewLine + "unlockdefaultwallet=1"
+			};
+		}
+
+		public class DogeCashNodeDownloadData
+		{
+			public NodeDownloadData v5_1_1 = new NodeDownloadData()
+			{
+				Version = "5.1.1",
+				Windows = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/dogecash/dogecash/releases/download/v5.0.1/DogeCash-5.0.1-win32.zip",
+					Archive = "DogeCash-5.0.1-win32.zip",
+					Executable = "dogecashd.exe",
+					Hash = "d78968049874617b9703323bf9ca03a8d140ebf605fff415437693abe3ccc5a0"
+				},
+				Linux = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/dogecash/dogecash/releases/download/v5.0.1/DogeCash-5.0.1-x86_64-linux-gnu.tar.gz",
+					Archive = "DogeCash-5.0.1-x86_64-linux-gnu.tar.gz",
+					Executable = "dogecashd",
+					Hash = "D8738E8C3D97A3B776414278991EDCCD1E555756713911FDC21E77836D00A3F9"
+				},
+				Mac = new NodeOSDownloadData()
+				{
+					DownloadLink = "https://github.com/dogecash/dogecash/releases/download/v5.0.1/DogeCash-5.0.1-osx-unsigned.dmg",
+					Archive = "DogeCash-5.0.1-osx-unsigned.dmg",
+					Executable = "DogeCash-5.0.1-osx-unsigned.dmg",
+					Hash = "13B0DBF2480EB47D2B8A5B82145FE2FC87AEF22CB5CDF78E01C27A41C8CD41D1"
 				}
 			};
 		}
@@ -903,6 +1320,11 @@
 			get; set;
 		} = new DashNodeDownloadData();
 
+		public static TerracoinNodeDownloadData Terracoin
+		{
+			get; set;
+		} = new TerracoinNodeDownloadData();
+
 		public static BGoldNodeDownloadData BGold
 		{
 			get; set;
@@ -947,7 +1369,7 @@
 		{
 			get; set;
 		} = new GincoinNodeDownloadData();
-		
+
 		public static KotoNodeDownloadData Koto
 		{
 			get; set;
@@ -962,6 +1384,21 @@
 		{
 			get; set;
 		} = new ChaincoinNodeDownloadData();
+
+		public static StratisNodeDownloadData Stratis
+		{
+			get; set;
+		} = new StratisNodeDownloadData();
+
+		public static ZCoinNodeDownloadData ZCoin
+		{
+			get; set;
+		} = new ZCoinNodeDownloadData();
+
+		public static DogeCashNodeDownloadData DogeCash
+		{
+			get; set;
+		} = new DogeCashNodeDownloadData();
 
 		public bool UseSectionInConfigFile { get; private set; }
 		public string AdditionalRegtestConfig { get; private set; }

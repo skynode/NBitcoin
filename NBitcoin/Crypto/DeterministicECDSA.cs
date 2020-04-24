@@ -1,4 +1,5 @@
-﻿using NBitcoin.BouncyCastle.Crypto;
+﻿#if !HAS_SPAN
+using NBitcoin.BouncyCastle.Crypto;
 using NBitcoin.BouncyCastle.Crypto.Digests;
 using NBitcoin.BouncyCastle.Crypto.Parameters;
 using NBitcoin.BouncyCastle.Crypto.Signers;
@@ -41,14 +42,14 @@ namespace NBitcoin.Crypto
 		private byte[] _buffer = new byte[0];
 		private readonly IDigest _digest;
 
-		public DeterministicECDSA(bool forceLowR=true)
+		public DeterministicECDSA(bool forceLowR = true)
 			: base(new HMacDsaKCalculator(new Sha256Digest()), forceLowR)
 
 		{
 			_digest = new Sha256Digest();
 			this.forceLowR = forceLowR;
 		}
-		public DeterministicECDSA(Func<IDigest> digest, bool forceLowR=true)
+		public DeterministicECDSA(Func<IDigest> digest, bool forceLowR = true)
 			: base(new HMacDsaKCalculator(digest()), forceLowR)
 		{
 			_digest = digest();
@@ -76,7 +77,10 @@ namespace NBitcoin.Crypto
 
 		public byte[] signHash(byte[] hash)
 		{
+#pragma warning disable 618
 			return new ECDSASignature(GenerateSignature(hash)).ToDER();
+#pragma warning restore 618
 		}
 	}
 }
+#endif

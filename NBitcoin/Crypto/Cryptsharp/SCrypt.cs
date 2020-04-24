@@ -17,9 +17,10 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 #endregion
-
+#if !NO_BC
 using NBitcoin.BouncyCastle.Crypto.Parameters;
 using NBitcoin.BouncyCastle.Security;
+#endif
 using NBitcoin.Crypto.Internal;
 using System;
 #if !USEBC
@@ -74,11 +75,17 @@ namespace NBitcoin.Crypto
 											   int derivedKeyLength)
 		{
 			Check.Range("derivedKeyLength", derivedKeyLength, 0, int.MaxValue);
-
-			using(Pbkdf2 kdf = GetStream(key, salt, cost, blockSize, parallel, maxThreads))
+#if NO_NATIVE_RFC2898_HMACSHA512 || NO_NATIVE_HMACSHA512
+			using (Pbkdf2 kdf = GetStream(key, salt, cost, blockSize, parallel, maxThreads))
 			{
 				return kdf.Read(derivedKeyLength);
 			}
+#else
+			byte[] B = GetEffectivePbkdf2Salt(key, salt, cost, blockSize, parallel, maxThreads);
+			using System.Security.Cryptography.Rfc2898DeriveBytes derive = new System.Security.Cryptography.Rfc2898DeriveBytes(key, B, 1, System.Security.Cryptography.HashAlgorithmName.SHA256);
+			Security.Clear(B);
+			return derive.GetBytes(derivedKeyLength);
+#endif
 		}
 
 		/// <summary>
@@ -143,18 +150,7 @@ namespace NBitcoin.Crypto
 		///     <c>null</c> will use as many threads as possible.
 		/// </param>
 		/// <returns>The derived key stream.</returns>
-#if !(USEBC || NETSTANDARD1X)
-		internal static Pbkdf2 GetStream(byte[] key, byte[] salt,
-									   int cost, int blockSize, int parallel, int? maxThreads)
-		{
-			byte[] B = GetEffectivePbkdf2Salt(key, salt, cost, blockSize, parallel, maxThreads);
-			Pbkdf2 kdf = new Pbkdf2(new HMACSHA256(key), B, 1);
-			Security.Clear(B);
-			return kdf;
-		}
-
-#else
-
+#if NO_NATIVE_HMACSHA512
 		internal static Pbkdf2 GetStream(byte[] key, byte[] salt,
 									   int cost, int blockSize, int parallel, int? maxThreads)
 		{
@@ -165,18 +161,26 @@ namespace NBitcoin.Crypto
 			Security.Clear(B);
 			return kdf;
 		}
+#elif NO_NATIVE_RFC2898_HMACSHA512
+		internal static Pbkdf2 GetStream(byte[] key, byte[] salt, int cost, int blockSize, int parallel, int? maxThreads)
+		{
+			byte[] B = GetEffectivePbkdf2Salt(key, salt, cost, blockSize, parallel, maxThreads);
+			Pbkdf2 kdf = new Pbkdf2(new HMACSHA256(key), B, 1);
+			Security.Clear(B);
+			return kdf;
+		}
 #endif
 
 		static byte[] MFcrypt(byte[] P, byte[] S,
 							  int cost, int blockSize, int parallel, int? maxThreads)
 		{
 			int MFLen = blockSize * 128;
-			if(maxThreads == null)
+			if (maxThreads == null)
 			{
 				maxThreads = int.MaxValue;
 			}
 
-			if(!BitMath.IsPositivePowerOf2(cost))
+			if (!BitMath.IsPositivePowerOf2(cost))
 			{
 				throw Exceptions.ArgumentOutOfRange("cost", "Cost must be a positive power of 2.");
 			}
@@ -184,20 +188,32 @@ namespace NBitcoin.Crypto
 			Check.Range("parallel", parallel, 1, int.MaxValue / MFLen);
 			Check.Range("maxThreads", (int)maxThreads, 1, int.MaxValue);
 
-#if !(USEBC || NETSTANDARD1X)
-			byte[] B = Pbkdf2.ComputeDerivedKey(new HMACSHA256(P), S, 1, parallel * MFLen);
-#else
+#if NO_NATIVE_HMACSHA512
 			var mac = new NBitcoin.BouncyCastle.Crypto.Macs.HMac(new NBitcoin.BouncyCastle.Crypto.Digests.Sha256Digest());
 			mac.Init(new KeyParameter(P));
 			byte[] B = Pbkdf2.ComputeDerivedKey(mac, S, 1, parallel * MFLen);
+#elif NO_NATIVE_RFC2898_HMACSHA512
+			byte[] B = Pbkdf2.ComputeDerivedKey(new HMACSHA256(P), S, 1, parallel * MFLen);
+#else
+			byte[] B = null;
+			if (S.Length >= 8)
+			{
+				// While we should be able to use Rfc2898DeriveBytes if salt is less than 8 bytes, it sadly does not accept salt less than 8 bytes needed for BIP38
+				using System.Security.Cryptography.Rfc2898DeriveBytes derive = new System.Security.Cryptography.Rfc2898DeriveBytes(P, S, 1, System.Security.Cryptography.HashAlgorithmName.SHA256);
+				B = derive.GetBytes(parallel * MFLen);
+			}
+			else
+			{
+				B = Pbkdf2.ComputeDerivedKey(new HMACSHA256(P), S, 1, parallel * MFLen);
+			}
 #endif
 			uint[] B0 = new uint[B.Length / 4];
-			for(int i = 0; i < B0.Length; i++)
+			for (int i = 0; i < B0.Length; i++)
 			{
 				B0[i] = BitPacking.UInt32FromLEBytes(B, i * 4);
 			} // code is easier with uint[]
 			ThreadSMixCalls(B0, MFLen, cost, blockSize, parallel, (int)maxThreads);
-			for(int i = 0; i < B0.Length; i++)
+			for (int i = 0; i < B0.Length; i++)
 			{
 				BitPacking.LEBytesFromUInt32(B0[i], B, i * 4);
 			}
@@ -205,49 +221,17 @@ namespace NBitcoin.Crypto
 
 			return B;
 		}
-#if !(USEBC || NETSTANDARD1X)
+#if NO_THREAD || NETSTANDARD13
 		static void ThreadSMixCalls(uint[] B0, int MFLen,
 									int cost, int blockSize, int parallel, int maxThreads)
 		{
 			int current = 0;
-			ThreadStart workerThread = delegate ()
+			Action workerThread = delegate ()
 			{
-				while(true)
+				while (true)
 				{
 					int j = Interlocked.Increment(ref current) - 1;
-					if(j >= parallel)
-					{
-						break;
-					}
-
-					SMix(B0, j * MFLen / 4, B0, j * MFLen / 4, (uint)cost, blockSize);
-				}
-			};
-
-			int threadCount = Math.Max(1, Math.Min(Environment.ProcessorCount, Math.Min(maxThreads, parallel)));
-			Thread[] threads = new Thread[threadCount - 1];
-			for(int i = 0; i < threads.Length; i++)
-			{
-				(threads[i] = new Thread(workerThread, 8192 * 4)).Start();
-			}
-			workerThread();
-			for(int i = 0; i < threads.Length; i++)
-			{
-				threads[i].Join();
-			}
-		}
-
-#else
-		static void ThreadSMixCalls(uint[] B0, int MFLen,
-									int cost, int blockSize, int parallel, int maxThreads)
-		{
-			int current = 0;
-			Action workerThread = delegate()
-			{
-				while(true)
-				{
-					int j = Interlocked.Increment(ref current) - 1;
-					if(j >= parallel)
+					if (j >= parallel)
 					{
 						break;
 					}
@@ -258,16 +242,72 @@ namespace NBitcoin.Crypto
 
 			int threadCount = Math.Max(1, Math.Min(Environment.ProcessorCount, Math.Min(maxThreads, parallel)));
 			Task[] threads = new Task[threadCount - 1];
-			for(int i = 0 ; i < threads.Length ; i++)
+			for (int i = 0; i < threads.Length; i++)
 			{
 				threads[i] = Task.Run(workerThread);
 			}
 			workerThread();
-			for(int i = 0 ; i < threads.Length ; i++)
+			for (int i = 0; i < threads.Length; i++)
 			{
 				threads[i].Wait();
 			}
 		}
+#else
+		static void ThreadSMixCalls(uint[] B0, int MFLen,
+									int cost, int blockSize, int parallel, int maxThreads)
+		{
+			int current = 0;
+			ThreadStart workerThread = delegate ()
+			{
+				while (true)
+				{
+					int j = Interlocked.Increment(ref current) - 1;
+					if (j >= parallel)
+					{
+						break;
+					}
+
+					SMix(B0, j * MFLen / 4, B0, j * MFLen / 4, (uint)cost, blockSize);
+				}
+			};
+			int threadCount = Math.Max(1, Math.Min(Environment.ProcessorCount, Math.Min(maxThreads, parallel)));
+			Thread[] threads = new Thread[threadCount - 1];
+			for (int i = 0; i < threads.Length; i++)
+			{
+				(threads[i] = new Thread(workerThread, 8192 * 16)).Start();
+			}
+			workerThread();
+			for (int i = 0; i < threads.Length; i++)
+			{
+				threads[i].Join();
+			}
+		}
+		// WARNING: Stack size issues on some platforms
+		//static void ThreadSMixCalls(uint[] B0, int MFLen,
+		//							int cost, int blockSize, int parallel, int maxThreads)
+		//{
+		//	int current = 0;
+		//	ThreadStart workerThread = delegate ()
+		//	{
+		//		while (true)
+		//		{
+		//			int j = Interlocked.Increment(ref current) - 1;
+		//			if (j >= parallel)
+		//			{
+		//				break;
+		//			}
+
+		//			SMix(B0, j * MFLen / 4, B0, j * MFLen / 4, (uint)cost, blockSize);
+		//		}
+		//	};
+		//	int threadCount = Math.Max(1, Math.Min(Environment.ProcessorCount, Math.Min(maxThreads, parallel)));
+		//	Thread[] threads = new Thread[threadCount - 1];
+		//	Parallel.For(0, threadCount - 1, (i) =>
+		//	{
+		//		workerThread();
+		//	});
+		//	workerThread();
+		//}
 #endif
 		static void SMix(uint[] B, int Boffset, uint[] Bp, int Bpoffset, uint N, int r)
 		{
@@ -279,22 +319,22 @@ namespace NBitcoin.Crypto
 
 			uint[] x = new uint[Bs];
 			uint[][] v = new uint[N][];
-			for(int i = 0; i < v.Length; i++)
+			for (int i = 0; i < v.Length; i++)
 			{
 				v[i] = new uint[Bs];
 			}
 
 			Array.Copy(B, Boffset, x, 0, Bs);
-			for(uint i = 0; i < N; i++)
+			for (uint i = 0; i < N; i++)
 			{
 				Array.Copy(x, v[i], Bs);
 				BlockMix(x, 0, x, 0, scratchX, scratchY, scratch1, r);
 			}
-			for(uint i = 0; i < N; i++)
+			for (uint i = 0; i < N; i++)
 			{
 				uint j = x[Bs - 16] & Nmask;
 				uint[] vj = v[j];
-				for(int k = 0; k < scratchZ.Length; k++)
+				for (int k = 0; k < scratchZ.Length; k++)
 				{
 					scratchZ[k] = x[k] ^ vj[k];
 				}
@@ -302,7 +342,7 @@ namespace NBitcoin.Crypto
 			}
 			Array.Copy(x, 0, Bp, Bpoffset, Bs);
 
-			for(int i = 0; i < v.Length; i++)
+			for (int i = 0; i < v.Length; i++)
 			{
 				Security.Clear(v[i]);
 			}
@@ -327,9 +367,9 @@ namespace NBitcoin.Crypto
 			int k = Boffset, m = 0, n = 16 * r;
 			Array.Copy(B, (2 * r - 1) * 16, x, 0, 16);
 
-			for(int i = 0; i < r; i++)
+			for (int i = 0; i < r; i++)
 			{
-				for(int j = 0; j < scratch.Length; j++)
+				for (int j = 0; j < scratch.Length; j++)
 				{
 					scratch[j] = x[j] ^ B[j + k];
 				}
@@ -337,7 +377,7 @@ namespace NBitcoin.Crypto
 				Array.Copy(x, 0, y, m, 16);
 				k += 16;
 
-				for(int j = 0; j < scratch.Length; j++)
+				for (int j = 0; j < scratch.Length; j++)
 				{
 					scratch[j] = x[j] ^ B[j + k];
 				}

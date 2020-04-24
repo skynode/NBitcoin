@@ -16,7 +16,7 @@ namespace NBitcoin.Tests
 		[Fact]
 		public void CanGetChainInfo()
 		{
-			using(var builder = NodeBuilderEx.Create())
+			using (var builder = NodeBuilderEx.Create())
 			{
 				var client = builder.CreateNode().CreateRESTClient();
 				builder.StartAll();
@@ -28,7 +28,7 @@ namespace NBitcoin.Tests
 		[Fact]
 		public void CanCalculateChainWork()
 		{
-			using(var builder = NodeBuilderEx.Create())
+			using (var builder = NodeBuilderEx.Create())
 			{
 				var node = builder.CreateNode();
 				var client = node.CreateRESTClient();
@@ -47,7 +47,7 @@ namespace NBitcoin.Tests
 		[Fact]
 		public void CanGetBlock()
 		{
-			using(var builder = NodeBuilderEx.Create())
+			using (var builder = NodeBuilderEx.Create())
 			{
 				var client = builder.CreateNode().CreateRESTClient();
 				builder.StartAll();
@@ -59,7 +59,7 @@ namespace NBitcoin.Tests
 		[Fact]
 		public void CanGetBlockHeader()
 		{
-			using(var builder = NodeBuilderEx.Create())
+			using (var builder = NodeBuilderEx.Create())
 			{
 				var client = builder.CreateNode().CreateRESTClient();
 				var rpc = builder.Nodes[0].CreateRPCClient();
@@ -78,7 +78,7 @@ namespace NBitcoin.Tests
 		[Fact]
 		public void CanGetTransaction()
 		{
-			using(var builder = NodeBuilderEx.Create())
+			using (var builder = NodeBuilderEx.Create())
 			{
 				var client = builder.CreateNode().CreateRESTClient();
 				builder.StartAll();
@@ -94,7 +94,7 @@ namespace NBitcoin.Tests
 		[Fact]
 		public void CanGetUTXOsMempool()
 		{
-			using(var builder = NodeBuilderEx.Create())
+			using (var builder = NodeBuilderEx.Create())
 			{
 				var client = builder.CreateNode().CreateRESTClient();
 				var rpc = builder.Nodes[0].CreateRPCClient();
@@ -102,10 +102,10 @@ namespace NBitcoin.Tests
 				var k = new Key().GetBitcoinSecret(Network.RegTest);
 				rpc.Generate(102);
 				rpc.ImportPrivKey(k);
-				rpc.SendToAddress(k.GetAddress(), Money.Coins(50m));
+				rpc.SendToAddress(k.GetAddress(ScriptPubKeyType.Legacy), Money.Coins(50m));
 				rpc.Generate(1);
 				var c = rpc.ListUnspent().First();
-				c = rpc.ListUnspent(0, 999999, k.GetAddress()).First();
+				c = rpc.ListUnspent(0, 999999, k.GetAddress(ScriptPubKeyType.Legacy)).First();
 				var outPoint = c.OutPoint;
 				var utxos = client.GetUnspentOutputsAsync(new[] { outPoint }, true).Result;
 				Assert.Single(utxos.Outputs);
@@ -122,7 +122,7 @@ namespace NBitcoin.Tests
 		[Fact]
 		public void CanGetUTXOs()
 		{
-			using(var builder = NodeBuilderEx.Create())
+			using (var builder = NodeBuilderEx.Create())
 			{
 				var client = builder.CreateNode().CreateRESTClient();
 				builder.StartAll();
@@ -138,7 +138,7 @@ namespace NBitcoin.Tests
 		[Fact]
 		public void ThrowsRestApiClientException()
 		{
-			using(var builder = NodeBuilderEx.Create())
+			using (var builder = NodeBuilderEx.Create())
 			{
 				var client = builder.CreateNode().CreateRESTClient();
 				builder.StartAll();

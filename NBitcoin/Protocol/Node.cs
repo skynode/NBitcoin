@@ -69,17 +69,17 @@ namespace NBitcoin.Protocol
 		public virtual bool Check(VersionPayload version, ProtocolCapabilities capabilities)
 		{
 #pragma warning disable CS0618 // Type or member is obsolete
-			if(!Check(version))
+			if (!Check(version))
 #pragma warning restore CS0618 // Type or member is obsolete
 				return false;
-			if(capabilities.PeerTooOld)
+			if (capabilities.PeerTooOld)
 				return false;
-			if(MinProtocolCapabilities == null)
+			if (MinProtocolCapabilities is null)
 				return true;
 
-			if(SupportSPV)
+			if (SupportSPV)
 			{
-				if(capabilities.SupportNodeBloom && ((version.Services & NodeServices.NODE_BLOOM) == 0))
+				if (capabilities.SupportNodeBloom && ((version.Services & NodeServices.NODE_BLOOM) == 0))
 					return false;
 			}
 
@@ -90,12 +90,12 @@ namespace NBitcoin.Protocol
 		[Obsolete("Use Check(VersionPayload, ProtocolCapabilities capabilities) instead")]
 		public virtual bool Check(VersionPayload version)
 		{
-			if(MinVersion != null)
+			if (MinVersion != null)
 			{
-				if(version.Version < MinVersion.Value)
+				if (version.Version < MinVersion.Value)
 					return false;
 			}
-			if((RequiredServices & version.Services) != RequiredServices)
+			if ((RequiredServices & version.Services) != RequiredServices)
 			{
 				return false;
 			}
@@ -183,7 +183,7 @@ namespace NBitcoin.Protocol
 				_Cancel = new CancellationTokenSource();
 			}
 
-			internal bool IsVerbose =>  Logs.NodeServer.IsEnabled(LogLevel.Trace);
+			internal bool IsVerbose => Logs.NodeServer.IsEnabled(LogLevel.Trace);
 
 
 			internal BlockingCollection<SentMessage> Messages = new BlockingCollection<SentMessage>(new ConcurrentQueue<SentMessage>());
@@ -193,7 +193,7 @@ namespace NBitcoin.Protocol
 				{
 					SentMessage processing = null;
 					Exception unhandledException = null;
-				
+
 					ManualResetEvent ar = new ManualResetEvent(false);
 					SocketAsyncEventArgs evt = new SocketAsyncEventArgs();
 					evt.SocketFlags = SocketFlags.None;
@@ -204,24 +204,24 @@ namespace NBitcoin.Protocol
 					try
 
 					{
-						foreach(var kv in Messages.GetConsumingEnumerable(Cancel.Token))
+						foreach (var kv in Messages.GetConsumingEnumerable(Cancel.Token))
 						{
 							processing = kv;
 							var payload = kv.Payload;
 							var message = new Message();
 							message.Magic = _Node.Network.Magic;
 							message.Payload = payload;
-							if(payload is GetHeadersPayload getHeaders)
+							if (payload is GetHeadersPayload getHeaders)
 							{
 								getHeaders.Version = Node.Version;
 							}
-							if(payload is GetBlocksPayload getBlocks)
+							if (payload is GetBlocksPayload getBlocks)
 							{
 								getBlocks.Version = Node.Version;
 							}
-							if(IsVerbose)
+							if (IsVerbose)
 							{
-								Logs.NodeServer.LogTrace("Sending message {message}" , message);
+								Logs.NodeServer.LogTrace("Sending message {message}", message);
 							}
 							MemoryStream ms = new MemoryStream();
 							message.ReadWrite(new BitcoinStream(ms, true)
@@ -234,39 +234,39 @@ namespace NBitcoin.Protocol
 							evt.SetBuffer(bytes, 0, bytes.Length);
 							_Node.Counter.AddWritten(bytes.Length);
 							ar.Reset();
-							if(!Socket.SendAsync(evt))
+							if (!Socket.SendAsync(evt))
 								Utils.SafeSet(ar);
 							WaitHandle.WaitAny(new WaitHandle[] { ar, Cancel.Token.WaitHandle }, -1);
-							if(!Cancel.Token.IsCancellationRequested)
+							if (!Cancel.Token.IsCancellationRequested)
 							{
-								if(evt.SocketError != SocketError.Success)
+								if (evt.SocketError != SocketError.Success)
 									throw new SocketException((int)evt.SocketError);
 								processing.Completion.SetResult(true);
 								processing = null;
 							}
 						}
 					}
-					catch(OperationCanceledException)
+					catch (OperationCanceledException)
 					{
 					}
-					catch(Exception ex)
+					catch (Exception ex)
 					{
 						unhandledException = ex;
 					}
 					finally
 					{
-						evt.Dispose();
-						ar.Dispose();
+						evt?.Dispose();
+						ar?.Dispose();
 					}
 
-					if(processing != null)
+					if (processing != null)
 						Messages.Add(processing);
 
-					foreach(var pending in Messages)
+					foreach (var pending in Messages)
 					{
-						if(IsVerbose)
+						if (IsVerbose)
 						{
-							Logs.NodeServer.LogTrace("The connection cancelled before the message was sent" );
+							Logs.NodeServer.LogTrace("The connection cancelled before the message was sent");
 						}
 						pending.Completion.SetException(new OperationCanceledException("The peer has been disconnected"));
 					}
@@ -278,16 +278,16 @@ namespace NBitcoin.Protocol
 				{
 					_ListenerThreadId = Thread.CurrentThread.ManagedThreadId;
 
-					
+
 					using (Logs.NodeServer.BeginScope("Thread scope {ThreadId}", _ListenerThreadId))
 					{
 						Logs.NodeServer.LogInformation("Start Listening");
-						
+
 						Exception unhandledException = null;
 						try
 						{
 							var stream = new NetworkStream(Socket, false);
-							while(!Cancel.Token.IsCancellationRequested)
+							while (!Cancel.Token.IsCancellationRequested)
 							{
 								PerformanceCounter counter;
 
@@ -307,10 +307,10 @@ namespace NBitcoin.Protocol
 								});
 							}
 						}
-						catch(OperationCanceledException)
+						catch (OperationCanceledException)
 						{
 						}
-						catch(Exception ex)
+						catch (Exception ex)
 						{
 							unhandledException = ex;
 						}
@@ -324,9 +324,9 @@ namespace NBitcoin.Protocol
 			public int _ListenerThreadId;
 			private void Cleanup(Exception unhandledException)
 			{
-				if(Interlocked.CompareExchange(ref _CleaningUp, 1, 0) == 1)
+				if (Interlocked.CompareExchange(ref _CleaningUp, 1, 0) == 1)
 					return;
-				if(!Cancel.IsCancellationRequested)
+				if (!Cancel.IsCancellationRequested)
 				{
 					Logs.NodeServer.LogError(default, unhandledException, "Connection to server stopped unexpectedly");
 					Node.DisconnectReason = new NodeDisconnectReason()
@@ -337,21 +337,21 @@ namespace NBitcoin.Protocol
 					Node.State = NodeState.Failed;
 				}
 
-				if(Node.State != NodeState.Failed)
+				if (Node.State != NodeState.Failed)
 					Node.State = NodeState.Offline;
 
 				_Cancel.Cancel();
 				Utils.SafeCloseSocket(Socket);
 				_Disconnected.Set(); //Set before behavior detach to prevent deadlock
-				foreach(var behavior in _Node.Behaviors)
+				foreach (var behavior in _Node.Behaviors)
 				{
 					try
 					{
 						behavior.Detach();
 					}
-					catch(Exception ex)
+					catch (Exception ex)
 					{
-						Logs.NodeServer.LogError(default, ex, "Error while detaching behavior {behaviour}" , behavior.GetType().FullName);
+						Logs.NodeServer.LogError(default, ex, "Error while detaching behavior {behaviour}", behavior.GetType().FullName);
 					}
 				}
 			}
@@ -374,16 +374,16 @@ namespace NBitcoin.Protocol
 			private set
 			{
 				Logs.NodeServer.LogInformation("State changed from {stateFrom} to {stateTo}", _State, value);
-				
+
 				var previous = _State;
 				_State = value;
-				if(previous != _State)
+				if (previous != _State)
 				{
 					OnStateChanged(previous);
-					if(value == NodeState.Failed || value == NodeState.Offline)
+					if (value == NodeState.Failed || value == NodeState.Offline)
 					{
 						Logs.NodeServer.LogInformation("Communication closed");
-						
+
 						OnDisconnected();
 					}
 				}
@@ -394,15 +394,15 @@ namespace NBitcoin.Protocol
 		private void OnStateChanged(NodeState previous)
 		{
 			var stateChanged = StateChanged;
-			if(stateChanged != null)
+			if (stateChanged != null)
 			{
-				foreach(var handler in stateChanged.GetInvocationList().Cast<NodeStateEventHandler>())
+				foreach (var handler in stateChanged.GetInvocationList().Cast<NodeStateEventHandler>())
 				{
 					try
 					{
 						handler.DynamicInvoke(this, previous);
 					}
-					catch(TargetInvocationException ex)
+					catch (TargetInvocationException ex)
 					{
 						Logs.NodeServer.LogError(default, ex.InnerException, "Error while StateChanged event raised");
 					}
@@ -423,40 +423,40 @@ namespace NBitcoin.Protocol
 		protected void OnMessageReceived(IncomingMessage message)
 		{
 			var version = message.Message.Payload as VersionPayload;
-			if(version != null && State == NodeState.HandShaked)
+			if (version != null && State == NodeState.HandShaked)
 			{
-				if(message.Node.ProtocolCapabilities.SupportReject)
+				if (message.Node.ProtocolCapabilities.SupportReject)
 					message.Node.SendMessageAsync(new RejectPayload()
 					{
 						Code = RejectCode.DUPLICATE
 					});
 			}
-			if(version != null)
+			if (version != null)
 			{
 				TimeOffset = DateTimeOffset.Now - version.Timestamp;
-				if((version.Services & NodeServices.NODE_WITNESS) != 0)
+				if ((version.Services & NodeServices.NODE_WITNESS) != 0)
 					_SupportedTransactionOptions |= TransactionOptions.Witness;
 			}
 			var havewitness = message.Message.Payload as HaveWitnessPayload;
-			if(havewitness != null)
+			if (havewitness != null)
 				_SupportedTransactionOptions |= TransactionOptions.Witness;
 
 			var last = new ActionFilter((m, n) =>
 			{
 				MessageProducer.PushMessage(m);
 				var messageReceived = MessageReceived;
-				if(messageReceived != null)
+				if (messageReceived != null)
 				{
-					foreach(var handler in messageReceived.GetInvocationList().Cast<NodeEventMessageIncoming>())
+					foreach (var handler in messageReceived.GetInvocationList().Cast<NodeEventMessageIncoming>())
 					{
 						try
 						{
 							handler.DynamicInvoke(this, m);
 						}
-						catch(TargetInvocationException ex)
+						catch (TargetInvocationException ex)
 						{
-							Logs.NodeServer.LogError(default, ex.InnerException, "Error while OnMessageReceived event raised" );
-						    UncaughtException?.Invoke(this, ex.InnerException);
+							Logs.NodeServer.LogError(default, ex.InnerException, "Error while OnMessageReceived event raised");
+							UncaughtException?.Invoke(this, ex.InnerException);
 						}
 					}
 				}
@@ -474,14 +474,14 @@ namespace NBitcoin.Protocol
 
 		private void FireFilters(IEnumerator<INodeFilter> enumerator, Payload payload)
 		{
-			if(enumerator.MoveNext())
+			if (enumerator.MoveNext())
 			{
 				var filter = enumerator.Current;
 				try
 				{
 					filter.OnSendingMessage(this, payload, () => FireFilters(enumerator, payload));
 				}
-				catch(Exception ex)
+				catch (Exception ex)
 				{
 					Logs.NodeServer.LogError(default, ex.InnerException, "Unhandled exception raised by a node filter (OnSendingMessage)");
 
@@ -495,14 +495,14 @@ namespace NBitcoin.Protocol
 
 		private void FireFilters(IEnumerator<INodeFilter> enumerator, IncomingMessage message)
 		{
-			if(enumerator.MoveNext())
+			if (enumerator.MoveNext())
 			{
 				var filter = enumerator.Current;
 				try
 				{
 					filter.OnReceivingMessage(message, () => FireFilters(enumerator, message));
 				}
-				catch(Exception ex)
+				catch (Exception ex)
 				{
 					Logs.NodeServer.LogError(default, ex.InnerException, "Unhandled exception raised by a node filter (OnReceivingMessage)");
 
@@ -515,15 +515,15 @@ namespace NBitcoin.Protocol
 		private void OnDisconnected()
 		{
 			var disconnected = Disconnected;
-			if(disconnected != null)
+			if (disconnected != null)
 			{
-				foreach(var handler in disconnected.GetInvocationList().Cast<NodeEventHandler>())
+				foreach (var handler in disconnected.GetInvocationList().Cast<NodeEventHandler>())
 				{
 					try
 					{
 						handler.DynamicInvoke(this);
 					}
-					catch(TargetInvocationException ex)
+					catch (TargetInvocationException ex)
 					{
 						Logs.NodeServer.LogError(default, ex.InnerException, "Error while Disconnected event raised");
 					}
@@ -567,58 +567,58 @@ namespace NBitcoin.Protocol
 			var addrmanBehavior = parameters.TemplateBehaviors.FindOrCreate(() => new AddressManagerBehavior(new AddressManager()));
 			var addrman = AddressManagerBehavior.GetAddrman(parameters);
 			DateTimeOffset start = DateTimeOffset.UtcNow;
-			while(true)
+			while (true)
 			{
 				parameters.ConnectCancellation.ThrowIfCancellationRequested();
-				if(addrman.Count == 0 || DateTimeOffset.UtcNow - start > TimeSpan.FromSeconds(60))
+				if (addrman.Count == 0 || DateTimeOffset.UtcNow - start > TimeSpan.FromSeconds(60))
 				{
 					addrmanBehavior.DiscoverPeers(network, parameters);
 					start = DateTimeOffset.UtcNow;
 				}
 				NetworkAddress addr = null;
 				int groupFail = 0;
-				while(true)
+				while (true)
 				{
-					if(groupFail > 50)
+					if (groupFail > 50)
 					{
 						parameters.ConnectCancellation.WaitHandle.WaitOne((int)TimeSpan.FromSeconds(60).TotalMilliseconds);
 						break;
 					}
 					addr = addrman.Select();
-					if(addr == null)
+					if (addr is null)
 					{
 						parameters.ConnectCancellation.WaitHandle.WaitOne(1000);
 						break;
 					}
-					if(!addr.Endpoint.Address.IsValid())
+					if (!addr.Endpoint.Address.IsValid())
 						continue;
 					var groupExist = connectedEndpoints.Any(a => getGroup(a).SequenceEqual(getGroup(addr.Endpoint)));
-					if(groupExist)
+					if (groupExist)
 					{
 						groupFail++;
 						continue;
 					}
 					break;
 				}
-				if(addr == null)
+				if (addr is null)
 					continue;
 				try
 				{
 					var timeout = new CancellationTokenSource(5000);
 					var param2 = parameters.Clone();
-					using(var cts = CancellationTokenSource.CreateLinkedTokenSource(parameters.ConnectCancellation, timeout.Token))
+					using (var cts = CancellationTokenSource.CreateLinkedTokenSource(parameters.ConnectCancellation, timeout.Token))
 					{
 						param2.ConnectCancellation = cts.Token;
 						var node = Node.Connect(network, addr.Endpoint, param2);
 						return node;
 					}
 				}
-				catch(OperationCanceledException ex)
+				catch (OperationCanceledException ex)
 				{
-					if(ex.CancellationToken == parameters.ConnectCancellation)
+					if (ex.CancellationToken == parameters.ConnectCancellation)
 						throw;
 				}
-				catch(SocketException)
+				catch (SocketException)
 				{
 					parameters.ConnectCancellation.WaitHandle.WaitOne(500);
 				}
@@ -634,7 +634,7 @@ namespace NBitcoin.Protocol
 		public static Node ConnectToLocal(Network network,
 								NodeConnectionParameters parameters)
 		{
-			return Connect(network, Utils.ParseIpEndpoint("localhost", network.DefaultPort), parameters);
+			return Connect(network, Utils.ParseEndpoint("localhost", network.DefaultPort), parameters);
 		}
 
 		public static Node ConnectToLocal(Network network,
@@ -653,7 +653,7 @@ namespace NBitcoin.Protocol
 		public static Node Connect(Network network,
 								 string endpoint, NodeConnectionParameters parameters)
 		{
-			return Connect(network, Utils.ParseIpEndpoint(endpoint, network.DefaultPort), parameters);
+			return Connect(network, Utils.ParseEndpoint(endpoint, network.DefaultPort), parameters);
 		}
 
 		public static Node Connect(Network network,
@@ -662,31 +662,95 @@ namespace NBitcoin.Protocol
 								bool isRelay = true,
 								CancellationToken cancellation = default(CancellationToken))
 		{
-			return Connect(network, Utils.ParseIpEndpoint(endpoint, network.DefaultPort), myVersion, isRelay, cancellation);
+			return Connect(network, Utils.ParseEndpoint(endpoint, network.DefaultPort), myVersion, isRelay, cancellation);
 		}
 
 		public static Node Connect(Network network,
 							 NetworkAddress endpoint,
 							 NodeConnectionParameters parameters)
 		{
-			return new Node(endpoint, network, parameters);
+			return ConnectAsync(network, endpoint?.Endpoint, endpoint, parameters).GetAwaiter().GetResult();
 		}
 
 		public static Node Connect(Network network,
-							 IPEndPoint endpoint,
+							 EndPoint endpoint,
 							 NodeConnectionParameters parameters)
 		{
-			var peer = new NetworkAddress()
-			{
-				Time = DateTimeOffset.UtcNow,
-				Endpoint = endpoint
-			};
+			return ConnectAsync(network, endpoint, parameters).GetAwaiter().GetResult();
+		}
 
-			return new Node(peer, network, parameters);
+		public static Task<Node> ConnectAsync(Network network, EndPoint endpoint, NodeConnectionParameters parameters = null)
+		{
+			return ConnectAsync(network, endpoint, null, parameters);
+		}
+		public static Task<Node> ConnectAsync(Network network, string endpoint, NodeConnectionParameters parameters = null)
+		{
+			if (network is null)
+				throw new ArgumentNullException(nameof(network));
+			return ConnectAsync(network, Utils.ParseEndpoint(endpoint, network.DefaultPort), null, parameters);
+		}
+
+		public static async Task<Node> ConnectAsync(Network network, EndPoint endpoint, NetworkAddress peer, NodeConnectionParameters parameters)
+		{
+			if (endpoint is null && peer is null)
+				throw new ArgumentNullException(nameof(endpoint));
+			if (network is null)
+				throw new ArgumentNullException(nameof(network));
+			if (endpoint is null)
+			{
+				endpoint = peer.Endpoint;
+			}
+
+			if (endpoint is null)
+				throw new ArgumentNullException(nameof(endpoint));
+
+			parameters = parameters ?? new NodeConnectionParameters();
+			var addrman = AddressManagerBehavior.GetAddrman(parameters);
+
+			var socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
+			parameters.SocketSettings.SetSocketProperties(socket);
+			try
+			{
+				await parameters.EndpointConnector.ConnectSocket(socket, endpoint, parameters, parameters.ConnectCancellation).ConfigureAwait(false);
+				var expectedPeerEndpoint = (endpoint as IPEndPoint) ?? endpoint.AsOnionCatIPEndpoint() ?? (socket.RemoteEndPoint as IPEndPoint);
+				if (peer is null)
+				{
+					peer = new NetworkAddress()
+					{
+						Time = DateTimeOffset.UtcNow,
+						Endpoint = expectedPeerEndpoint
+					};
+					peer.Endpoint = expectedPeerEndpoint;
+				}
+				else if (!expectedPeerEndpoint.MapToIPv6Ex().Equals(peer.Endpoint))
+				{
+					throw new ArgumentException("The peer's endpoint that you provided is different from the endpoint eventually connected to");
+				}
+			}
+			catch (OperationCanceledException)
+			{
+				Utils.SafeCloseSocket(socket);
+				Logs.NodeServer.LogInformation("Connection to node cancelled");
+				if (addrman != null && peer != null && peer.Endpoint != null)
+					addrman.Attempt(peer);
+				throw;
+			}
+			catch (Exception ex)
+			{
+				Utils.SafeCloseSocket(socket);
+				Logs.NodeServer.LogError(default, ex, "Error connecting to the remote endpoint");
+				if (addrman != null && peer != null && peer.Endpoint != null)
+					addrman.Attempt(peer);
+				throw;
+			}
+
+			var destinationEndpoint = endpoint.AsOnionCatIPEndpoint() ?? ((IPEndPoint)socket.RemoteEndPoint);
+			Node node = new Node(peer, network, parameters, socket, null);
+			return node;
 		}
 
 		public static Node Connect(Network network,
-								 IPEndPoint endpoint,
+								 EndPoint endpoint,
 								 uint? myVersion = null,
 								bool isRelay = true,
 								CancellationToken cancellation = default(CancellationToken))
@@ -700,81 +764,6 @@ namespace NBitcoin.Protocol
 			});
 		}
 
-		internal Node(NetworkAddress peer, Network network, NodeConnectionParameters parameters)
-		{
-			parameters = parameters ?? new NodeConnectionParameters();
-			var addrman = AddressManagerBehavior.GetAddrman(parameters);
-			Inbound = false;
-			_Behaviors = new NodeBehaviorsCollection(this);
-			_MyVersion = parameters.CreateVersion(peer.Endpoint, network);
-			Network = network;
-			SetVersion(_MyVersion.Version);
-			_Peer = peer;
-			LastSeen = peer.Time;
-
-			var socket = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
-			socket.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
-
-			_Connection = new NodeConnection(this, socket);
-			socket.ReceiveBufferSize = parameters.ReceiveBufferSize;
-			socket.SendBufferSize = parameters.SendBufferSize;
-			
-			using (Logs.NodeServer.BeginScope("Node"))
-
-			{
-				try
-				{
-					var completed = new ManualResetEvent(false);
-					var args = new SocketAsyncEventArgs();
-					args.RemoteEndPoint = peer.Endpoint;
-					args.Completed += (s, a) =>
-					{
-						Utils.SafeSet(completed);
-					};
-					if(!socket.ConnectAsync(args))
-						completed.Set();
-					WaitHandle.WaitAny(new WaitHandle[] { completed, parameters.ConnectCancellation.WaitHandle });
-					parameters.ConnectCancellation.ThrowIfCancellationRequested();
-					if(args.SocketError != SocketError.Success)
-						throw new SocketException((int)args.SocketError);
-					var remoteEndpoint = (IPEndPoint)(socket.RemoteEndPoint ?? args.RemoteEndPoint);
-					_RemoteSocketAddress = remoteEndpoint.Address;
-					_RemoteSocketEndpoint = remoteEndpoint;
-					_RemoteSocketPort = remoteEndpoint.Port;
-					State = NodeState.Connected;
-					ConnectedAt = DateTimeOffset.UtcNow;
-					Logs.NodeServer.LogInformation("Outbound connection successful");
-					if(addrman != null)
-						addrman.Attempt(Peer);
-				}
-				catch(OperationCanceledException)
-				{
-					Utils.SafeCloseSocket(socket);
-					Logs.NodeServer.LogInformation("Connection to node cancelled");
-					State = NodeState.Offline;
-					if(addrman != null)
-						addrman.Attempt(Peer);
-					throw;
-				}
-				catch(Exception ex)
-				{
-					Utils.SafeCloseSocket(socket);
-					Logs.NodeServer.LogError(default, ex,"Error connecting to the remote endpoint");
-					DisconnectReason = new NodeDisconnectReason()
-					{
-						Reason = "Unexpected exception while connecting to socket",
-						Exception = ex
-					};
-					State = NodeState.Failed;
-					if(addrman != null)
-						addrman.Attempt(Peer);
-					throw;
-				}
-				InitDefaultBehaviors(parameters);
-				_Connection.BeginListen();
-			}
-		}
-
 		private void SetVersion(uint version)
 		{
 			Version = version;
@@ -783,26 +772,26 @@ namespace NBitcoin.Protocol
 
 		internal Node(NetworkAddress peer, Network network, NodeConnectionParameters parameters, Socket socket, VersionPayload peerVersion)
 		{
-			_RemoteSocketAddress = ((IPEndPoint)socket.RemoteEndPoint).Address;
-			_RemoteSocketEndpoint = ((IPEndPoint)socket.RemoteEndPoint);
-			_RemoteSocketPort = ((IPEndPoint)socket.RemoteEndPoint).Port;
-			Inbound = true;
+			_RemoteSocketAddress = peer.Endpoint.Address;
+			_RemoteSocketEndpoint = peer.Endpoint;
+			_RemoteSocketPort = peer.Endpoint.Port;
+			_Peer = peer;
+			Inbound = peerVersion != null;
+			Network = network;
 			_Behaviors = new NodeBehaviorsCollection(this);
 			_MyVersion = parameters.CreateVersion(peer.Endpoint, network);
-			if(peerVersion == null)
+			if (peerVersion is null)
 				SetVersion((uint)_MyVersion.Version);
-			Network = network;
-			_Peer = peer;
 			_Connection = new NodeConnection(this, socket);
 			_PeerVersion = peerVersion;
-			if(peerVersion != null)
+			if (peerVersion != null)
 			{
 				SetVersion(Math.Min(_MyVersion.Version, _PeerVersion.Version));
 			}
 
 			LastSeen = peer.Time;
 			ConnectedAt = DateTimeOffset.UtcNow;
-			Logs.NodeServer.LogInformation("Connected to advertised node {endpoint}", _Peer.Endpoint);
+			Logs.NodeServer.LogInformation("Connected to node {endpoint} (inbound: {inbound})", _Peer.Endpoint, Inbound);
 			State = NodeState.Connected;
 
 			InitDefaultBehaviors(parameters);
@@ -818,8 +807,8 @@ namespace NBitcoin.Protocol
 			}
 		}
 
-		IPEndPoint _RemoteSocketEndpoint;
-		public IPEndPoint RemoteSocketEndpoint
+		EndPoint _RemoteSocketEndpoint;
+		public EndPoint RemoteSocketEndpoint
 		{
 			get
 			{
@@ -847,7 +836,7 @@ namespace NBitcoin.Protocol
 			Advertize = parameters.Advertize;
 			PreferredTransactionOptions = parameters.PreferredTransactionOptions;
 			_Behaviors.DelayAttach = true;
-			foreach(var behavior in parameters.TemplateBehaviors)
+			foreach (var behavior in parameters.TemplateBehaviors)
 			{
 				_Behaviors.Add(behavior.Clone());
 			}
@@ -891,10 +880,15 @@ namespace NBitcoin.Protocol
 		/// <param name="System.OperationCanceledException">The node has been disconnected</param>
 		public Task SendMessageAsync(Payload payload)
 		{
-			if(payload == null)
+			if (payload is null)
 				throw new ArgumentNullException(nameof(payload));
+
+#if NO_RCA
 			TaskCompletionSource<bool> completion = new TaskCompletionSource<bool>();
-			if(!IsConnected)
+#else
+			TaskCompletionSource<bool> completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+#endif
+			if (!IsConnected)
 			{
 				completion.SetException(new OperationCanceledException("The peer has been disconnected"));
 				return completion.Task;
@@ -914,7 +908,7 @@ namespace NBitcoin.Protocol
 			OnSendingMessage(payload, final);
 			return completion.Task;
 		}
-		
+
 		/// <summary>
 		/// Send a message to the peer synchronously
 		/// </summary>
@@ -927,7 +921,7 @@ namespace NBitcoin.Protocol
 			{
 				SendMessageAsync(payload).Wait(cancellation);
 			}
-			catch(AggregateException aex)
+			catch (AggregateException aex)
 			{
 				ExceptionDispatchInfo.Capture(aex.InnerException).Throw();
 				throw;
@@ -939,7 +933,7 @@ namespace NBitcoin.Protocol
 		{
 			get
 			{
-				if(_Counter == null)
+				if (_Counter is null)
 					_Counter = new PerformanceCounter();
 				return _Counter;
 			}
@@ -988,7 +982,7 @@ namespace NBitcoin.Protocol
 
 		public TPayload ReceiveMessage<TPayload>(CancellationToken cancellationToken = default(CancellationToken)) where TPayload : Payload
 		{
-			using(var listener = new NodeListener(this))
+			using (var listener = new NodeListener(this))
 			{
 				return listener.ReceivePayload<TPayload>(cancellationToken);
 			}
@@ -1028,7 +1022,7 @@ namespace NBitcoin.Protocol
 		public void VersionHandshake(NodeRequirement requirements, CancellationToken cancellationToken = default(CancellationToken))
 		{
 			requirements = requirements ?? new NodeRequirement();
-			using(var listener = CreateListener()
+			using (var listener = CreateListener()
 									.Where(p => p.Message.Payload is VersionPayload ||
 												p.Message.Payload is RejectPayload ||
 												p.Message.Payload is VerAckPayload))
@@ -1036,7 +1030,7 @@ namespace NBitcoin.Protocol
 
 				SendMessageAsync(MyVersion);
 				var payload = listener.ReceivePayload<Payload>(cancellationToken);
-				if(payload is RejectPayload)
+				if (payload is RejectPayload)
 				{
 					throw new ProtocolException("Handshake rejected : " + ((RejectPayload)payload).Reason);
 				}
@@ -1044,17 +1038,17 @@ namespace NBitcoin.Protocol
 				_PeerVersion = version;
 				SetVersion(Math.Min(MyVersion.Version, version.Version));
 
-				if(!version.AddressReceiver.Address.Equals(MyVersion.AddressFrom.Address))
-					Logs.NodeServer.LogWarning("Different external address detected by the node {addressReceiver} instead of {addressFrom}" , version.AddressReceiver.Address , MyVersion.AddressFrom.Address);
-			
-				if(ProtocolCapabilities.PeerTooOld)
+				if (!version.AddressReceiver.Address.Equals(MyVersion.AddressFrom.Address))
+					Logs.NodeServer.LogWarning("Different external address detected by the node {addressReceiver} instead of {addressFrom}", version.AddressReceiver.Address, MyVersion.AddressFrom.Address);
+
+				if (ProtocolCapabilities.PeerTooOld)
 				{
 					Logs.NodeServer.LogWarning("Outdated version {version} disconnecting", version.Version);
 					Disconnect("Outdated version");
 					return;
 				}
 
-				if(!requirements.Check(version, ProtocolCapabilities))
+				if (!requirements.Check(version, ProtocolCapabilities))
 				{
 					Disconnect("The peer does not support the required services requirement");
 					return;
@@ -1063,7 +1057,7 @@ namespace NBitcoin.Protocol
 				SendMessageAsync(new VerAckPayload());
 				listener.ReceivePayload<VerAckPayload>(cancellationToken);
 				State = NodeState.HandShaked;
-				if(Advertize && MyVersion.AddressFrom.Address.IsRoutable(true))
+				if (Advertize && MyVersion.AddressFrom.Address.IsRoutable(true))
 				{
 					SendMessageAsync(new AddrPayload(new NetworkAddress(MyVersion.AddressFrom)
 					{
@@ -1082,14 +1076,14 @@ namespace NBitcoin.Protocol
 		/// <param name="cancellation"></param>
 		public void RespondToHandShake(CancellationToken cancellation = default(CancellationToken))
 		{
-			using(var list = CreateListener().Where(m => m.Message.Payload is VerAckPayload || m.Message.Payload is RejectPayload))
+			using (var list = CreateListener().Where(m => m.Message.Payload is VerAckPayload || m.Message.Payload is RejectPayload))
 			{
 				Logs.NodeServer.LogInformation("Responding to handshake");
 
 				SendMessageAsync(MyVersion);
 				var message = list.ReceiveMessage(cancellation);
 				var reject = message.Message.Payload as RejectPayload;
-				if(reject != null)
+				if (reject != null)
 					throw new ProtocolException("Version rejected " + reject.Code + " : " + reject.Reason);
 				SendMessageAsync(new VerAckPayload());
 				State = NodeState.HandShaked;
@@ -1112,7 +1106,7 @@ namespace NBitcoin.Protocol
 
 		private void AssertNoListeningThread()
 		{
-			if(_Connection._ListenerThreadId == Thread.CurrentThread.ManagedThreadId)
+			if (_Connection._ListenerThreadId == Thread.CurrentThread.ManagedThreadId)
 				throw new InvalidOperationException("Using Disconnect on this thread would result in a deadlock, use DisconnectAsync instead");
 		}
 		public void DisconnectAsync()
@@ -1121,16 +1115,16 @@ namespace NBitcoin.Protocol
 		}
 		public void DisconnectAsync(string reason, Exception exception = null)
 		{
-			if(!IsConnected)
+			if (!IsConnected)
 				return;
-			if(Interlocked.CompareExchange(ref _Disconnecting, 1, 0) == 1)
+			if (Interlocked.CompareExchange(ref _Disconnecting, 1, 0) == 1)
 				return;
 
 			Logs.NodeServer.LogInformation("Disconnection request {reason}", reason);
 
 			State = NodeState.Disconnecting;
 			_Connection.Cancel.Cancel();
-			if(DisconnectReason == null)
+			if (DisconnectReason is null)
 				DisconnectReason = new NodeDisconnectReason()
 				{
 					Reason = reason,
@@ -1247,82 +1241,82 @@ namespace NBitcoin.Protocol
 
 			Logs.NodeServer.LogInformation("Building chain");
 
-			using(var listener = this.CreateListener().OfType<HeadersPayload>())
+			using (var listener = this.CreateListener().OfType<HeadersPayload>())
 			{
 				int acceptMaxReorgDepth = 0;
-				while(true)
+				while (true)
 				{
 					//Get before last so, at the end, we should only receive 1 header equals to this one (so we will not have race problems with concurrent GetChains)
-					var awaited = currentTip.Previous == null ? currentTip.GetLocator() : currentTip.Previous.GetLocator();
+					var awaited = currentTip.Previous is null ? currentTip.GetLocator() : currentTip.Previous.GetLocator();
 					SendMessageAsync(new GetHeadersPayload()
 					{
 						BlockLocators = awaited,
 						HashStop = options.HashStop
 					});
 
-					while(true)
+					while (true)
 					{
 						bool isOurs = false;
 						HeadersPayload headers = null;
 
-						using(var headersCancel = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+						using (var headersCancel = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
 						{
 							headersCancel.CancelAfter(PollHeaderDelay);
 							try
 							{
 								headers = listener.ReceivePayload<HeadersPayload>(headersCancel.Token);
 							}
-							catch(OperationCanceledException)
+							catch (OperationCanceledException)
 							{
 								acceptMaxReorgDepth += 6;
-								if(cancellationToken.IsCancellationRequested)
+								if (cancellationToken.IsCancellationRequested)
 									throw;
 								break; //Send a new GetHeaders
 							}
 						}
-						if(headers.Headers.Count == 0 && PeerVersion.StartHeight == 0 && currentTip.HashBlock == Network.GenesisHash) //In the special case where the remote node is at height 0 as well as us, then the headers count will be 0
+						if (headers.Headers.Count == 0 && PeerVersion.StartHeight == 0 && currentTip.HashBlock == Network.GenesisHash) //In the special case where the remote node is at height 0 as well as us, then the headers count will be 0
 							yield break;
-						if(headers.Headers.Count == 1 && headers.Headers[0].GetHash() == currentTip.HashBlock)
+						if (headers.Headers.Count == 1 && headers.Headers[0].GetHash() == currentTip.HashBlock)
 							yield break;
-						foreach(var header in headers.Headers)
+						foreach (var header in headers.Headers)
 						{
 							var h = header.GetHash();
-							if(h == currentTip.HashBlock)
+							if (h == currentTip.HashBlock)
 								continue;
 
 							//The previous headers request timeout, this can arrive in case of big reorg
-							if(header.HashPrevBlock != currentTip.HashBlock)
+							if (header.HashPrevBlock != currentTip.HashBlock)
 							{
 								int reorgDepth = 0;
 								var tempCurrentTip = currentTip;
-								while(reorgDepth != acceptMaxReorgDepth && tempCurrentTip != null && header.HashPrevBlock != tempCurrentTip.HashBlock)
+								while (reorgDepth != acceptMaxReorgDepth && tempCurrentTip != null && header.HashPrevBlock != tempCurrentTip.HashBlock)
 								{
 									reorgDepth++;
 									tempCurrentTip = tempCurrentTip.Previous;
 								}
-								if(reorgDepth != acceptMaxReorgDepth && tempCurrentTip != null)
+								if (reorgDepth != acceptMaxReorgDepth && tempCurrentTip != null)
 									currentTip = tempCurrentTip;
 							}
 
-							if(header.HashPrevBlock == currentTip.HashBlock)
+							if (header.HashPrevBlock == currentTip.HashBlock)
 							{
 								isOurs = true;
 								currentTip = new ChainedBlock(header, h, currentTip);
-								if(options.StripHeaders)
+								if (options.StripHeaders)
 									currentTip.StripHeader();
-								if(!options.SkipPoWCheck)
+								if (!options.SkipPoWCheck)
 								{
-									if(!currentTip.Validate(Network))
+									if (!currentTip.Validate(Network))
 										throw new ProtocolException("An header which does not pass proof of work verification has been received");
 								}
 								yield return currentTip;
-								if(currentTip.HashBlock == options.HashStop)
+								if (currentTip.HashBlock == options.HashStop)
 									yield break;
 							}
 							else
 								break; //Not our headers, continue receive
 						}
-						if(isOurs)
+						if (isOurs)
 							break;  //Go ask for next header
 					}
 				}
@@ -1348,10 +1342,10 @@ namespace NBitcoin.Protocol
 			options = options ?? new SynchronizeChainOptions();
 			var oldTip = chain.Tip;
 			var headers = GetHeadersFromFork(oldTip, options, cancellationToken).ToList();
-			if(headers.Count == 0)
+			if (headers.Count == 0)
 				return new ChainedBlock[0];
 			var newTip = headers[headers.Count - 1];
-			if(newTip.Height <= oldTip.Height)
+			if (newTip.Height <= oldTip.Height)
 				throw new ProtocolException("No tip should have been received older than the local one");
 			chain.SetTip(newTip);
 			return headers;
@@ -1378,21 +1372,21 @@ namespace NBitcoin.Protocol
 		/// <returns>Task which finish when complete</returns>
 		public void SynchronizeSlimChain(SlimChain chain, uint256 hashStop = null, CancellationToken cancellationToken = default(CancellationToken))
 		{
-			if(chain == null)
+			if (chain is null)
 				throw new ArgumentNullException(nameof(chain));
 			AssertState(NodeState.HandShaked, cancellationToken);
 
 			Logs.NodeServer.LogInformation("Building chain");
 
-			using(var listener = this.CreateListener().OfType<HeadersPayload>())
+			using (var listener = this.CreateListener().OfType<HeadersPayload>())
 			{
-				while(true)
+				while (true)
 				{
 					var currentTip = chain.TipBlock;
 
 					//Get before last so, at the end, we should only receive 1 header equals to this one (so we will not have race problems with concurrent GetChains)
-					var awaited = currentTip.Previous == null ? chain.GetLocator(currentTip.Height) : chain.GetLocator(currentTip.Height - 1);
-					if(awaited == null)
+					var awaited = currentTip.Previous is null ? chain.GetLocator(currentTip.Height) : chain.GetLocator(currentTip.Height - 1);
+					if (awaited is null)
 						continue;
 					SendMessageAsync(new GetHeadersPayload()
 					{
@@ -1400,51 +1394,51 @@ namespace NBitcoin.Protocol
 						HashStop = hashStop
 					});
 
-					while(true)
+					while (true)
 					{
 						bool isOurs = false;
 						HeadersPayload headers = null;
 
-						using(var headersCancel = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+						using (var headersCancel = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
 						{
 							headersCancel.CancelAfter(PollHeaderDelay);
 							try
 							{
 								headers = listener.ReceivePayload<HeadersPayload>(headersCancel.Token);
 							}
-							catch(OperationCanceledException)
+							catch (OperationCanceledException)
 							{
-								if(cancellationToken.IsCancellationRequested)
+								if (cancellationToken.IsCancellationRequested)
 									throw;
 								break; //Send a new GetHeaders
 							}
 						}
-						if(headers.Headers.Count == 0 && PeerVersion.StartHeight == 0 && currentTip.Hash == Network.GenesisHash) //In the special case where the remote node is at height 0 as well as us, then the headers count will be 0
+						if (headers.Headers.Count == 0 && PeerVersion.StartHeight == 0 && currentTip.Hash == Network.GenesisHash) //In the special case where the remote node is at height 0 as well as us, then the headers count will be 0
 							return;
-						if(headers.Headers.Count == 1 && headers.Headers[0].GetHash() == currentTip.Hash)
+						if (headers.Headers.Count == 1 && headers.Headers[0].GetHash() == currentTip.Hash)
 							return;
-						foreach(var header in headers.Headers)
+						foreach (var header in headers.Headers)
 						{
 							var h = header.GetHash();
-							if(h == currentTip.Hash)
+							if (h == currentTip.Hash)
 								continue;
 
-							if(header.HashPrevBlock == currentTip.Hash)
+							if (header.HashPrevBlock == currentTip.Hash)
 							{
 								isOurs = true;
 								currentTip = new SlimChainedBlock(h, currentTip.Hash, currentTip.Height + 1);
 								chain.TrySetTip(currentTip.Hash, currentTip.Previous);
-								if(currentTip.Hash == hashStop)
+								if (currentTip.Hash == hashStop)
 									return;
 							}
-							else if(chain.TrySetTip(h, header.HashPrevBlock))
+							else if (chain.TrySetTip(h, header.HashPrevBlock))
 							{
 								currentTip = chain.TipBlock;
 							}
-							else 
-							 break;
+							else
+								break;
 						}
-						if(isOurs)
+						if (isOurs)
 							break;  //Go ask for next header
 					}
 				}
@@ -1464,7 +1458,7 @@ namespace NBitcoin.Protocol
 
 		public IEnumerable<Block> GetBlocksFromFork(ChainedBlock currentTip, SynchronizeChainOptions synchronizeChainOptions, CancellationToken cancellationToken = default(CancellationToken))
 		{
-			using(var listener = CreateListener())
+			using (var listener = CreateListener())
 			{
 				SendMessageAsync(new GetBlocksPayload()
 				{
@@ -1473,7 +1467,7 @@ namespace NBitcoin.Protocol
 
 				var headers = GetHeadersFromFork(currentTip, synchronizeChainOptions, cancellationToken);
 
-				foreach(var block in GetBlocks(headers.Select(b => b.HashBlock), cancellationToken))
+				foreach (var block in GetBlocks(headers.Select(b => b.HashBlock), cancellationToken))
 				{
 					yield return block;
 				}
@@ -1495,10 +1489,10 @@ namespace NBitcoin.Protocol
 			AssertState(NodeState.HandShaked, cancellationToken);
 
 			int simultaneous = 70;
-			using(var listener = CreateListener()
+			using (var listener = CreateListener()
 								.OfType<BlockPayload>())
 			{
-				foreach(var invs in neededBlocks
+				foreach (var invs in neededBlocks
 									.Select(b => new InventoryVector()
 									{
 										Type = AddSupportedOptions(InventoryType.MSG_BLOCK),
@@ -1511,17 +1505,17 @@ namespace NBitcoin.Protocol
 					SendMessageAsync(new GetDataPayload(invs.ToArray()));
 
 					int maxQueued = 0;
-					while(remaining.Count != 0)
+					while (remaining.Count != 0)
 					{
 						var block = listener.ReceivePayload<BlockPayload>(cancellationToken).Object;
 						maxQueued = Math.Max(listener.MessageQueue.Count, maxQueued);
-						if(remaining.Peek() == block.GetHash())
+						if (remaining.Peek() == block.GetHash())
 						{
 							remaining.Dequeue();
 							yield return block;
 						}
 					}
-					if(maxQueued < 10)
+					if (maxQueued < 10)
 						simultaneous *= 2;
 					else
 						simultaneous /= 2;
@@ -1545,21 +1539,21 @@ namespace NBitcoin.Protocol
 
 		private void AssertState(NodeState nodeState, CancellationToken cancellationToken = default(CancellationToken))
 		{
-			if(nodeState == NodeState.HandShaked && State == NodeState.Connected)
+			if (nodeState == NodeState.HandShaked && State == NodeState.Connected)
 				this.VersionHandshake(cancellationToken);
-			if(nodeState != State)
+			if (nodeState != State)
 				throw new InvalidOperationException("Invalid Node state, needed=" + nodeState + ", current= " + State);
 		}
 
 		public uint256[] GetMempool(CancellationToken cancellationToken = default(CancellationToken))
 		{
 			AssertState(NodeState.HandShaked);
-			using(var listener = CreateListener().OfType<InvPayload>())
+			using (var listener = CreateListener().OfType<InvPayload>())
 			{
 				this.SendMessageAsync(new MempoolPayload());
 				var invs = listener.ReceivePayload<InvPayload>(cancellationToken).Inventory.Select(i => i.Hash).ToList();
 				var result = invs;
-				while(invs.Count == InvPayload.MAX_INV_SZ)
+				while (invs.Count == InvPayload.MAX_INV_SZ)
 				{
 					invs = listener.ReceivePayload<InvPayload>(cancellationToken).Inventory.Select(i => i.Hash).ToList();
 					result.AddRange(invs);
@@ -1587,12 +1581,12 @@ namespace NBitcoin.Protocol
 		public Transaction[] GetMempoolTransactions(uint256[] txIds, CancellationToken cancellationToken = default(CancellationToken))
 		{
 			AssertState(NodeState.HandShaked);
-			if(txIds.Length == 0)
+			if (txIds.Length == 0)
 				return new Transaction[0];
 			List<Transaction> result = new List<Transaction>();
-			using(var listener = CreateListener().Where(m => m.Message.Payload is TxPayload || m.Message.Payload is NotFoundPayload))
+			using (var listener = CreateListener().Where(m => m.Message.Payload is TxPayload || m.Message.Payload is NotFoundPayload))
 			{
-				foreach(var batch in txIds.Partition(500))
+				foreach (var batch in txIds.Partition(500))
 				{
 					this.SendMessageAsync(new GetDataPayload(batch.Select(txid => new InventoryVector()
 					{
@@ -1602,13 +1596,13 @@ namespace NBitcoin.Protocol
 					try
 					{
 						List<Transaction> batchResult = new List<NBitcoin.Transaction>();
-						while(batchResult.Count < batch.Count)
+						while (batchResult.Count < batch.Count)
 						{
 							CancellationTokenSource timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10.0));
-							using(var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token))
+							using (var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token))
 							{
 								var payload = listener.ReceivePayload<Payload>(cts.Token);
-								if(payload is NotFoundPayload)
+								if (payload is NotFoundPayload)
 									batchResult.Add(null);
 								else
 									batchResult.Add(((TxPayload)payload).Object);
@@ -1616,9 +1610,9 @@ namespace NBitcoin.Protocol
 						}
 						result.AddRange(batchResult);
 					}
-					catch(OperationCanceledException)
+					catch (OperationCanceledException)
 					{
-						if(cancellationToken.IsCancellationRequested)
+						if (cancellationToken.IsCancellationRequested)
 						{
 							throw;
 						}
@@ -1635,7 +1629,7 @@ namespace NBitcoin.Protocol
 		/// <returns>Inventory type with options (MSG_TX | MSG_WITNESS_FLAG)</returns>
 		public InventoryType AddSupportedOptions(InventoryType inventoryType)
 		{
-			if((ActualTransactionOptions & TransactionOptions.Witness) != 0)
+			if ((ActualTransactionOptions & TransactionOptions.Witness) != 0)
 				inventoryType |= InventoryType.MSG_WITNESS_FLAG;
 			return inventoryType;
 		}
@@ -1662,7 +1656,7 @@ namespace NBitcoin.Protocol
 		/// <returns>Latency</returns>
 		public TimeSpan PingPong(CancellationToken cancellation = default(CancellationToken))
 		{
-			using(var listener = CreateListener().OfType<PongPayload>())
+			using (var listener = CreateListener().OfType<PongPayload>())
 			{
 				var ping = new PingPayload()
 				{
@@ -1671,7 +1665,7 @@ namespace NBitcoin.Protocol
 				var before = DateTimeOffset.UtcNow;
 				SendMessageAsync(ping);
 
-				while(listener.ReceivePayload<PongPayload>(cancellation).Nonce != ping.Nonce)
+				while (listener.ReceivePayload<PongPayload>(cancellation).Nonce != ping.Nonce)
 				{
 				}
 				var after = DateTimeOffset.UtcNow;

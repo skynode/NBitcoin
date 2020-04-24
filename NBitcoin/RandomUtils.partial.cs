@@ -15,14 +15,14 @@ namespace NBitcoin
 		{
 			_Instance = new RNGCryptoServiceProvider();
 		}
-		#region IRandom Members
+#region IRandom Members
 
 		public void GetBytes(byte[] output)
 		{
 			_Instance.GetBytes(output);
 		}
 
-		#endregion
+#endregion
 	}
 
 	public partial class RandomUtils
@@ -59,8 +59,13 @@ namespace NBitcoin
 		{
 			_Instance.GetBytes(output);
 		}
-
-		#endregion
+#if HAS_SPAN
+		public void GetBytes(Span<byte> output)
+		{
+			_Instance.GetBytes(output);
+		}
+#endif
+#endregion
 	}
 
 	public partial class RandomUtils

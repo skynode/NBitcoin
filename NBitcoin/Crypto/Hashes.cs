@@ -1,6 +1,8 @@
-﻿using NBitcoin.BouncyCastle.Crypto.Digests;
+﻿#if !NO_BC
 using NBitcoin.BouncyCastle.Crypto.Parameters;
 using NBitcoin.BouncyCastle.Security;
+#endif
+using NBitcoin.BouncyCastle.Crypto.Digests;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -44,7 +46,7 @@ namespace NBitcoin.Crypto
 			sha256.DoFinal(rv, 0);
 			return rv;
 #else
-			using(var sha = new SHA256Managed())
+			using (var sha = new SHA256Managed())
 			{
 				var h = sha.ComputeHash(data, offset, count);
 				return sha.ComputeHash(h, 0, h.Length);
@@ -57,6 +59,13 @@ namespace NBitcoin.Crypto
 		{
 			return Hash160(data, 0, data.Length);
 		}
+#if HAS_SPAN
+		public static uint160 Hash160(ReadOnlySpan<byte> data)
+		{
+			// TODO: optimize
+			return Hash160(data.ToArray());
+		}
+#endif
 
 		public static uint160 Hash160(byte[] data, int count)
 		{
@@ -82,7 +91,7 @@ namespace NBitcoin.Crypto
 
 		public static byte[] RIPEMD160(byte[] data, int offset, int count)
 		{
-#if NONATIVEHASH || NETCORE || NETSTANDARD
+#if NO_NATIVERIPEMD160
 			RipeMD160Digest ripemd = new RipeMD160Digest();
 			ripemd.BlockUpdate(data, offset, count);
 			byte[] rv = new byte[20];
@@ -95,8 +104,23 @@ namespace NBitcoin.Crypto
 			}
 #endif
 		}
+		public static byte[] SHA1(byte[] data, int offset, int count)
+		{
+#if NO_NATIVESHA1
+			var sha1 = new Sha1Digest();
+			sha1.BlockUpdate(data, offset, count);
+			byte[] rv = new byte[20];
+			sha1.DoFinal(rv, 0);
+			return rv;
+#else
+			using (var sha1 = new SHA1Managed())
+			{
+				return sha1.ComputeHash(data, offset, count);
+			}
+#endif
+		}
 
-		#endregion
+#endregion
 
 		internal struct SipHasher
 		{
@@ -123,34 +147,34 @@ namespace NBitcoin.Crypto
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 				v0 ^= data;
 
 				v_0 = v0;
@@ -170,44 +194,44 @@ namespace NBitcoin.Crypto
 				var c = count;
 				int offset = 0;
 
-				while(size-- != 0)
+				while (size-- != 0)
 				{
 					t |= ((ulong)((data[offset++]))) << (int)(8 * (c % 8));
 					c++;
-					if((c & 7) == 0)
+					if ((c & 7) == 0)
 					{
 						v3 ^= t;
 						//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 						v0 += v1;
 						v2 += v3;
-						v1 =  v1 << 13 | v1 >> 51;
-						v3 =  v3 << 16 | v3 >> 48;
+						v1 = v1 << 13 | v1 >> 51;
+						v3 = v3 << 16 | v3 >> 48;
 						v1 ^= v0;
 						v3 ^= v2;
-						v0 =  v0 << 32 | v0 >> 32;
+						v0 = v0 << 32 | v0 >> 32;
 						v2 += v1;
 						v0 += v3;
-						v1 =  v1 << 17 | v1 >> 47;
-						v3 =  v3 << 21 | v3 >> 43;
+						v1 = v1 << 17 | v1 >> 47;
+						v3 = v3 << 21 | v3 >> 43;
 						v1 ^= v2;
 						v3 ^= v0;
-						v2 =  v2 << 32 | v2 >> 32;
+						v2 = v2 << 32 | v2 >> 32;
 
 						//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 						v0 += v1;
 						v2 += v3;
-						v1 =  v1 << 13 | v1 >> 51;
-						v3 =  v3 << 16 | v3 >> 48;
+						v1 = v1 << 13 | v1 >> 51;
+						v3 = v3 << 16 | v3 >> 48;
 						v1 ^= v0;
 						v3 ^= v2;
-						v0 =  v0 << 32 | v0 >> 32;
+						v0 = v0 << 32 | v0 >> 32;
 						v2 += v1;
 						v0 += v3;
-						v1 =  v1 << 17 | v1 >> 47;
-						v3 =  v3 << 21 | v3 >> 43;
+						v1 = v1 << 17 | v1 >> 47;
+						v3 = v3 << 21 | v3 >> 43;
 						v1 ^= v2;
 						v3 ^= v0;
-						v2 =  v2 << 32 | v2 >> 32;
+						v2 = v2 << 32 | v2 >> 32;
 						v0 ^= t;
 						t = 0;
 					}
@@ -233,100 +257,100 @@ namespace NBitcoin.Crypto
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				v0 ^= t;
 				v2 ^= 0xFF;
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				return v0 ^ v1 ^ v2 ^ v3;
 			}
@@ -344,34 +368,34 @@ namespace NBitcoin.Crypto
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				v0 ^= d;
 				d = GetULong(val, 1);
@@ -380,34 +404,34 @@ namespace NBitcoin.Crypto
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				v0 ^= d;
 				d = GetULong(val, 2);
@@ -416,34 +440,34 @@ namespace NBitcoin.Crypto
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				v0 ^= d;
 				d = GetULong(val, 3);
@@ -452,34 +476,34 @@ namespace NBitcoin.Crypto
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				v0 ^= d;
 				v3 ^= ((ulong)4) << 59;
@@ -487,34 +511,34 @@ namespace NBitcoin.Crypto
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				v0 ^= ((ulong)4) << 59;
 				v2 ^= 0xFF;
@@ -522,73 +546,73 @@ namespace NBitcoin.Crypto
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				//SIPROUND(ref v0, ref v1, ref v2, ref v3);
 				v0 += v1;
 				v2 += v3;
-				v1 =  v1 << 13 | v1 >> 51;
-				v3 =  v3 << 16 | v3 >> 48;
+				v1 = v1 << 13 | v1 >> 51;
+				v3 = v3 << 16 | v3 >> 48;
 				v1 ^= v0;
 				v3 ^= v2;
-				v0 =  v0 << 32 | v0 >> 32;
+				v0 = v0 << 32 | v0 >> 32;
 				v2 += v1;
 				v0 += v3;
-				v1 =  v1 << 17 | v1 >> 47;
-				v3 =  v3 << 21 | v3 >> 43;
+				v1 = v1 << 17 | v1 >> 47;
+				v3 = v3 << 21 | v3 >> 43;
 				v1 ^= v2;
 				v3 ^= v0;
-				v2 =  v2 << 32 | v2 >> 32;
+				v2 = v2 << 32 | v2 >> 32;
 
 				return v0 ^ v1 ^ v2 ^ v3;
 			}
 
 			internal static ulong GetULong(uint256 val, int position)
 			{
-				switch(position)
+				switch (position)
 				{
 					case 0:
 						return (ulong)val.pn0 + (ulong)((ulong)val.pn1 << 32);
@@ -609,19 +633,16 @@ namespace NBitcoin.Crypto
 			return SipHasher.SipHashUint256(k0, k1, val);
 		}
 
-		public static byte[] SHA1(byte[] data, int offset, int count)
-		{
-			var sha1 = new Sha1Digest();
-			sha1.BlockUpdate(data, offset, count);
-			byte[] rv = new byte[20];
-			sha1.DoFinal(rv, 0);
-			return rv;
-		}
-
 		public static byte[] SHA256(byte[] data)
 		{
 			return SHA256(data, 0, data.Length);
 		}
+#if HAS_SPAN
+		public static byte[] SHA256(ReadOnlySpan<byte> data)
+		{
+			return SHA256(data.ToArray(), 0, data.Length);
+		}
+#endif
 
 		public static byte[] SHA256(byte[] data, int offset, int count)
 		{
@@ -632,7 +653,7 @@ namespace NBitcoin.Crypto
 			sha256.DoFinal(rv, 0);
 			return rv;
 #else
-			using(var sha = new SHA256Managed())
+			using (var sha = new SHA256Managed())
 			{
 				return sha.ComputeHash(data, offset, count);
 			}
@@ -654,7 +675,7 @@ namespace NBitcoin.Crypto
 			sha512.DoFinal(rv, 0);
 			return rv;
 #else
-			using(var sha = new SHA512Managed())
+			using (var sha = new SHA512Managed())
 			{
 				return sha.ComputeHash(data, offset, count);
 			}
@@ -685,13 +706,13 @@ namespace NBitcoin.Crypto
 			uint k1 = 0;
 			uint streamLength = 0;
 
-			using(BinaryReader reader = new BinaryReader(new MemoryStream(vDataToHash)))
+			using (BinaryReader reader = new BinaryReader(new MemoryStream(vDataToHash)))
 			{
 				byte[] chunk = reader.ReadBytes(4);
-				while(chunk.Length > 0)
+				while (chunk.Length > 0)
 				{
 					streamLength += (uint)chunk.Length;
-					switch(chunk.Length)
+					switch (chunk.Length)
 					{
 						case 4:
 							/* Get four bytes from the input into an uint */
@@ -776,10 +797,31 @@ namespace NBitcoin.Crypto
 		{
 			return new HMACSHA512(key).ComputeHash(data);
 		}
-		
+#if HAS_SPAN
+		public static bool HMACSHA512(byte[] key, ReadOnlySpan<byte> data, Span<byte> output, out int outputLength)
+		{
+			using var hmac = new HMACSHA512(key);
+			return hmac.TryComputeHash(data, output, out outputLength);
+		}
+#endif
 		public static byte[] HMACSHA256(byte[] key, byte[] data)
 		{
 			return new HMACSHA256(key).ComputeHash(data);
+		}
+#endif
+#if HAS_SPAN
+		public static void BIP32Hash(byte[] chainCode, uint nChild, byte header, Span<byte> data, Span<byte> output)
+		{
+			Span<byte> d = stackalloc byte[1 + data.Length + 4];
+			d[0] = header;
+			data.CopyTo(d.Slice(1));
+			var noffset = 1 + data.Length;
+			d[noffset] = (byte)((nChild >> 24) & 0xFF);
+			d[noffset + 1] = (byte)((nChild >> 16) & 0xFF);
+			d[noffset + 2] = (byte)((nChild >> 8) & 0xFF);
+			d[noffset + 3] = (byte)((nChild >> 0) & 0xFF);
+			if (!Hashes.HMACSHA512(chainCode, d, output, out var l) && l != 64)
+				throw new InvalidOperationException("Could not compute BIP32 HMACSHA512");
 		}
 #endif
 		public static byte[] BIP32Hash(byte[] chainCode, uint nChild, byte header, byte[] data)

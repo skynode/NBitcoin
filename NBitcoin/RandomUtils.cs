@@ -14,13 +14,18 @@ namespace NBitcoin
 
 		public void GetBytes(byte[] output)
 		{
-			lock(_Rand)
+			lock (_Rand)
 			{
 				_Rand.NextBytes(output);
 			}
 		}
-
-		#endregion
+#if HAS_SPAN
+		public void GetBytes(Span<byte> output)
+		{
+			_Rand.NextBytes(output);
+		}
+#endif
+#endregion
 
 	}
 
@@ -28,6 +33,9 @@ namespace NBitcoin
 	public interface IRandom
 	{
 		void GetBytes(byte[] output);
+#if HAS_SPAN
+		void GetBytes(Span<byte> output);
+#endif
 	}
 
 	public partial class RandomUtils
@@ -41,26 +49,35 @@ namespace NBitcoin
 		public static byte[] GetBytes(int length)
 		{
 			byte[] data = new byte[length];
-			if(Random == null)
+			if (Random == null)
 				throw new InvalidOperationException("You must set the RNG (RandomUtils.Random) before generating random numbers");
 			Random.GetBytes(data);
 			PushEntropy(data);
 			return data;
 		}
 
+#if HAS_SPAN
+		public static void GetBytes(Span<byte> span)
+		{
+			if (Random == null)
+				throw new InvalidOperationException("You must set the RNG (RandomUtils.Random) before generating random numbers");
+			Random.GetBytes(span);
+		}
+#endif
+
 		private static void PushEntropy(byte[] data)
 		{
-			if(additionalEntropy == null || data.Length == 0)
+			if (additionalEntropy == null || data.Length == 0)
 				return;
 			int pos = entropyIndex;
 			var entropy = additionalEntropy;
-			for(int i = 0; i < data.Length; i++)
+			for (int i = 0; i < data.Length; i++)
 			{
 				data[i] ^= entropy[pos % 32];
 				pos++;
 			}
 			entropy = Hashes.SHA256(data);
-			for(int i = 0; i < data.Length; i++)
+			for (int i = 0; i < data.Length; i++)
 			{
 				data[i] ^= entropy[pos % 32];
 				pos++;
@@ -73,21 +90,21 @@ namespace NBitcoin
 
 		public static void AddEntropy(string data)
 		{
-			if(data == null)
+			if (data == null)
 				throw new ArgumentNullException(nameof(data));
 			AddEntropy(Encoding.UTF8.GetBytes(data));
 		}
 
 		public static void AddEntropy(byte[] data)
 		{
-			if(data == null)
+			if (data == null)
 				throw new ArgumentNullException(nameof(data));
 			var entropy = Hashes.SHA256(data);
-			if(additionalEntropy == null)
+			if (additionalEntropy == null)
 				additionalEntropy = entropy;
 			else
 			{
-				for(int i = 0; i < 32; i++)
+				for (int i = 0; i < 32; i++)
 				{
 					additionalEntropy[i] ^= entropy[i];
 				}
@@ -121,7 +138,7 @@ namespace NBitcoin
 
 		public static void GetBytes(byte[] output)
 		{
-			if(Random == null)
+			if (Random == null)
 				throw new InvalidOperationException("You must set the RNG (RandomUtils.Random) before generating random numbers");
 			Random.GetBytes(output);
 			PushEntropy(output);

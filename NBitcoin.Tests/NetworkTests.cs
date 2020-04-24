@@ -23,6 +23,15 @@ namespace NBitcoin.Tests
 
 		[Fact]
 		[Trait("UnitTest", "UnitTest")]
+		public void CanGetAllShitcoins()
+		{
+			NBitcoin.Altcoins.AltNetworkSets.GetAll().Select(c => c.Regtest).ToList();
+			NBitcoin.Altcoins.AltNetworkSets.GetAll().Select(c => c.Testnet).ToList();
+			NBitcoin.Altcoins.AltNetworkSets.GetAll().Select(c => c.Mainnet).ToList();
+		}
+
+		[Fact]
+		[Trait("UnitTest", "UnitTest")]
 		public void CanCreateNetwork()
 		{
 			NetworkBuilder builder = new NetworkBuilder();
@@ -49,7 +58,7 @@ namespace NBitcoin.Tests
 			var bytes = Network.Main.MagicBytes.ToList();
 			bytes.Insert(0, bytes.First());
 
-			using(var memstrema = new MemoryStream(bytes.ToArray()))
+			using (var memstrema = new MemoryStream(bytes.ToArray()))
 			{
 				var found = Network.Main.ReadMagic(memstrema, new CancellationToken());
 				Assert.True(found);

@@ -6,7 +6,13 @@ namespace NBitcoin
 {
 	public class TransactionSignature
 	{
+#if HAS_SPAN
+		static readonly TransactionSignature _Empty = new TransactionSignature(new ECDSASignature(Secp256k1.Scalar.Zero, Secp256k1.Scalar.Zero), SigHash.All);
+#else
+#pragma warning disable 618
 		static readonly TransactionSignature _Empty = new TransactionSignature(new ECDSASignature(NBitcoin.BouncyCastle.Math.BigInteger.ValueOf(0), NBitcoin.BouncyCastle.Math.BigInteger.ValueOf(0)), SigHash.All);
+#pragma warning restore 618
+#endif
 		public static TransactionSignature Empty
 		{
 			get
@@ -37,9 +43,9 @@ namespace NBitcoin
 		/// <returns>True if valid</returns>
 		public static bool IsValid(byte[] sig, ScriptVerify scriptVerify, out ScriptError error)
 		{
-			if(sig == null)
+			if (sig == null)
 				throw new ArgumentNullException(nameof(sig));
-			if(sig.Length == 0)
+			if (sig.Length == 0)
 			{
 				error = ScriptError.SigDer;
 				return false;
@@ -49,7 +55,7 @@ namespace NBitcoin
 			{
 				ScriptVerify = scriptVerify
 			};
-			if(!ctx.CheckSignatureEncoding(sig))
+			if (!ctx.CheckSignatureEncoding(sig))
 			{
 				error = ctx.Error;
 				return false;
@@ -58,8 +64,10 @@ namespace NBitcoin
 		}
 		public TransactionSignature(ECDSASignature signature, SigHash sigHash)
 		{
-			if(sigHash == SigHash.Undefined)
+			if (sigHash == SigHash.Undefined)
 				throw new ArgumentException("sigHash should not be Undefined");
+			if (signature == null)
+				throw new ArgumentNullException(nameof(signature));
 			_SigHash = sigHash;
 			_Signature = signature;
 		}
@@ -129,7 +137,7 @@ namespace NBitcoin
 		{
 			get
 			{
-				if(_Id == null)
+				if (_Id == null)
 					_Id = Encoders.Hex.EncodeData(ToBytes());
 				return _Id;
 			}
@@ -138,15 +146,15 @@ namespace NBitcoin
 		public override bool Equals(object obj)
 		{
 			TransactionSignature item = obj as TransactionSignature;
-			if(item == null)
+			if (item == null)
 				return false;
 			return Id.Equals(item.Id);
 		}
 		public static bool operator ==(TransactionSignature a, TransactionSignature b)
 		{
-			if(System.Object.ReferenceEquals(a, b))
+			if (System.Object.ReferenceEquals(a, b))
 				return true;
-			if(((object)a == null) || ((object)b == null))
+			if (((object)a == null) || ((object)b == null))
 				return false;
 			return a.Id == b.Id;
 		}
@@ -180,7 +188,7 @@ namespace NBitcoin
 		/// </summary>
 		public TransactionSignature MakeCanonical()
 		{
-			if(IsLowS)
+			if (IsLowS)
 				return this;
 			return new TransactionSignature(Signature.MakeCanonical(), SigHash);
 		}

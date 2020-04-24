@@ -1,6 +1,8 @@
 ﻿using NBitcoin.Crypto;
 using NBitcoin.DataEncoders;
+#if !NO_BC
 using NBitcoin.BouncyCastle.Math;
+#endif
 using System;
 using System.Linq;
 using System.Text;
@@ -33,7 +35,7 @@ namespace NBitcoin
 		{
 			get
 			{
-				if(_ConfirmationCode == null)
+				if (_ConfirmationCode == null)
 				{
 					_ConfirmationCode = _CalculateConfirmation();
 					_CalculateConfirmation = null;
@@ -64,9 +66,9 @@ namespace NBitcoin
 	{
 		public LotSequence(int lot, int sequence)
 		{
-			if(lot > 1048575 || lot < 0)
+			if (lot > 1048575 || lot < 0)
 				throw new ArgumentOutOfRangeException("lot");
-			if(sequence > 1024 || sequence < 0)
+			if (sequence > 1024 || sequence < 0)
 				throw new ArgumentOutOfRangeException("sequence");
 
 			_Lot = lot;
@@ -132,9 +134,9 @@ namespace NBitcoin
 		}
 		public static bool operator ==(LotSequence a, LotSequence b)
 		{
-			if(ReferenceEquals(a, b))
+			if (ReferenceEquals(a, b))
 				return true;
-			if(((object)a == null) || ((object)b == null))
+			if (((object)a == null) || ((object)b == null))
 				return false;
 			return a.Id == b.Id;
 		}
@@ -165,7 +167,7 @@ namespace NBitcoin
 			ownersalt = ownersalt ?? RandomUtils.GetBytes(8);
 			var ownerEntropy = ownersalt;
 
-			if(hasLotSequence)
+			if (hasLotSequence)
 			{
 				ownersalt = ownersalt.Take(4).ToArray();
 				ownerEntropy = ownersalt.Concat(lotsequence.ToBytes()).ToArray();
@@ -174,7 +176,7 @@ namespace NBitcoin
 
 			var prefactor = SCrypt.BitcoinComputeDerivedKey(Encoding.UTF8.GetBytes(passphrase), ownersalt, 32);
 			var passfactor = prefactor;
-			if(hasLotSequence)
+			if (hasLotSequence)
 			{
 				passfactor = Hashes.Hash256(prefactor.Concat(ownerEntropy).ToArray()).ToBytes();
 			}
@@ -201,7 +203,7 @@ namespace NBitcoin
 			get
 			{
 				var hasLotSequence = (vchData[0]) == 0x51;
-				if(!hasLotSequence)
+				if (!hasLotSequence)
 					return null;
 				return _LotSequence ?? (_LotSequence = new LotSequence(OwnerEntropy.Skip(4).Take(4).ToArray()));
 			}
@@ -221,19 +223,24 @@ namespace NBitcoin
 			var factorb = Hashes.Hash256(seedb).ToBytes();
 
 			//ECMultiply passpoint by factorb.
+#if HAS_SPAN
+			if (!NBitcoinContext.Instance.TryCreatePubKey(Passpoint, out var eckey) || eckey is null)
+				throw new InvalidOperationException("Invalid Passpoint");
+			var pubKey = new PubKey(eckey.MultTweak(factorb), isCompressed);
+#else
 			var curve = ECKey.Secp256k1;
 			var passpoint = curve.Curve.DecodePoint(Passpoint);
 			var pubPoint = passpoint.Multiply(new BigInteger(1, factorb));
 
 			//Use the resulting EC point as a public key
 			var pubKey = new PubKey(pubPoint.GetEncoded());
-
 			//and hash it into a Bitcoin address using either compressed or uncompressed public key
 			//This is the generated Bitcoin address, call it generatedaddress.
 			pubKey = isCompressed ? pubKey.Compress() : pubKey.Decompress();
+#endif
 
 			//call it generatedaddress.
-			var generatedaddress = pubKey.GetAddress(Network);
+			var generatedaddress = pubKey.GetAddress(ScriptPubKeyType.Legacy, Network);
 
 			//Take the first four bytes of SHA256(SHA256(generatedaddress)) and call it addresshash.
 			var addresshash = BitcoinEncryptedSecretEC.HashAddress(generatedaddress);

@@ -9,7 +9,9 @@ namespace NBitcoin.BouncyCastle.Crypto.Digests
     * "Handbook of Applied Cryptography", pages 344 - 347.
     */
 	internal abstract class GeneralDigest
+#if !NO_BC
 		: IDigest, IMemoable
+#endif
 	{
 		private const int BYTE_LENGTH = 64;
 
@@ -41,7 +43,7 @@ namespace NBitcoin.BouncyCastle.Crypto.Digests
 		{
 			xBuf[xBufOff++] = input;
 
-			if(xBufOff == xBuf.Length)
+			if (xBufOff == xBuf.Length)
 			{
 				ProcessWord(xBuf, 0);
 				xBufOff = 0;
@@ -61,12 +63,12 @@ namespace NBitcoin.BouncyCastle.Crypto.Digests
 			// fill the current word
 			//
 			int i = 0;
-			if(xBufOff != 0)
+			if (xBufOff != 0)
 			{
-				while(i < length)
+				while (i < length)
 				{
 					xBuf[xBufOff++] = input[inOff + i++];
-					if(xBufOff == 4)
+					if (xBufOff == 4)
 					{
 						ProcessWord(xBuf, 0);
 						xBufOff = 0;
@@ -79,7 +81,7 @@ namespace NBitcoin.BouncyCastle.Crypto.Digests
 			// process whole words.
 			//
 			int limit = ((length - i) & ~3) + i;
-			for(; i < limit; i += 4)
+			for (; i < limit; i += 4)
 			{
 				ProcessWord(input, inOff + i);
 			}
@@ -87,7 +89,7 @@ namespace NBitcoin.BouncyCastle.Crypto.Digests
 			//
 			// load in the remainder.
 			//
-			while(i < length)
+			while (i < length)
 			{
 				xBuf[xBufOff++] = input[inOff + i++];
 			}
@@ -104,7 +106,7 @@ namespace NBitcoin.BouncyCastle.Crypto.Digests
 			//
 			Update((byte)128);
 
-			while(xBufOff != 0)
+			while (xBufOff != 0)
 				Update((byte)0);
 			ProcessLength(bitLength);
 			ProcessBlock();
@@ -131,7 +133,9 @@ namespace NBitcoin.BouncyCastle.Crypto.Digests
 		}
 		public abstract int GetDigestSize();
 		public abstract int DoFinal(byte[] output, int outOff);
+#if !NO_BC
 		public abstract IMemoable Copy();
 		public abstract void Reset(IMemoable t);
+#endif
 	}
 }
